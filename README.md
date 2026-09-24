@@ -1,3 +1,24 @@
+# 小数半径高斯模糊 / Sky Gaussian Blur Float
+
+新增节点 `Sky Gaussian Blur Float / 高斯模糊（小数半径）`，分类 `Sky Tools`，内部类型 `SkyGaussianBlurFloat`。
+
+- `radius`：默认 **1.5**，范围 0—100，步进 0.1；可以直接输入 1.25、1.5、1.75 等小数。
+- `0`：原图直通；数值越大越模糊。不改变图片尺寸，支持批量图片。
+- 使用与 Art Venture `ImageGaussianBlur` 相同的 Pillow `ImageFilter.GaussianBlur`，半径直接以小数传入，不取整、不混合两张整数模糊图。使用相同 Pillow 版本和普通 RGB 输入时，1、2 的结果与原节点一致。
+- 沿用原节点的 8 位图像处理方式，适用于当前 PNG/JPG 天空图；正半径会量化到 8 位并截断超出 0—1 的值，不适合保留真正 HDR 浮点动态范围。
+- 使用 ComfyUI 已有的 Pillow、NumPy、PyTorch，无模型下载。原有天空底部拉伸节点继续可用。
+
+## Byteartist 更新与替换
+
+1. 插件下载使用 `branch`，Git 地址 `https://github.com/fangfang-ship-it/fang`，分支 `main`，更新/重新下载后重新加载运行环境。
+2. 在画布搜索 `Sky Gaussian Blur Float` 或 `高斯模糊（小数半径）`，添加新节点。旧封装节点不会自动变成小数输入。
+3. 连接：**平铺偏移 → 新高斯模糊 → 画面对比度 → 保存图片**，替换旧高斯模糊节点。
+4. 将 `radius` 设为 **1.5**；继续微调可试 1.4、1.6，或直接输入两位小数。
+
+该节点不自动修复天空接缝。未在 Byteartist 实际运行环境验证界面；本地验证范围见 tests/test_gaussian_blur.py。
+
+---
+
 ## Byteartist 安装
 
 Git 仓库链接：`https://github.com/fangfang-ship-it/fang`
@@ -65,3 +86,4 @@ Load Image（加载图像） → Sky Bottom Stretch 2:1 → Save Image（保存�
 参考官方接口：
 - https://docs.comfy.org/custom-nodes/walkthrough
 - https://docs.comfy.org/custom-nodes/backend/datatypes
+
