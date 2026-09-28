@@ -139,7 +139,7 @@ export DOUYIN3D_AUTH_SCHEME=''
 4. 成功后读取 `glb_path`、`glb_url`、`asset_id`；GLB 文件保存在 ComfyUI 输出目录。
 5. 在原生 `Load 3D` / `Preview 3D` 中选择该 GLB，即可用鼠标旋转、缩放和平移查看。
 
-图生 3D 可将 BA/ComfyUI 文生图节点的 `IMAGE` 直接连接到 `image`。节点会将批次中的第一张图编码为 PNG，通过 AI Studio `POST /api/v1/files/upload` 上传，再把返回的 URL 传给生成接口；也保留 `image_url` 作为调试入口。Poly3D 当前仅开放文字生成，连接图片时会明确报错。
+图生 3D 可将 BA/ComfyUI 文生图节点的 `IMAGE` 直接连接到 `image`；PE/文本节点的输出可连接到 `prompt_input`，其内容会优先于节点内手填的 `prompt`。节点会将批次中的第一张图编码为 PNG，通过 AI Studio `POST /api/v1/files/upload` 上传，再把返回的 URL 传给生成接口；也保留 `image_url` 作为调试入口。Poly3D 当前仅开放文字生成，连接图片时会明确报错。
 
 ### 当前接口
 

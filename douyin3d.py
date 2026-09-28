@@ -371,6 +371,7 @@ class Douyin3DGenerate:
                 "poll_seconds": ("INT", {"default": 10, "min": 2, "max": 60}),
             },
             "optional": {
+                "prompt_input": ("STRING", {"forceInput": True}),
                 "image": ("IMAGE",),
                 "image_url": ("STRING", {"default": ""}),
             },
@@ -400,8 +401,9 @@ class Douyin3DGenerate:
         poll_seconds: int = 10,
         image: Any = None,
         image_url: str = "",
+        prompt_input: str = "",
     ):
-        prompt = prompt.strip()
+        prompt = (prompt_input or prompt).strip()
         image_url = image_url.strip()
         vendor = _SUPPLIER_IDS.get(supplier)
         if not vendor:
