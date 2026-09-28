@@ -48,6 +48,6 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
     "SkyGaussianBlurFloat": "Sky Gaussian Blur Float / 高斯模糊（小数半径）",
-    "Douyin3DGenerate": "Douyin3D Generate & Download / 3D生成并下载",
+    "Douyin3DGenerate": "AI Studio 3D Generate & Download / 3D生成并下载",
     "Douyin3DDownloadGLB": "Douyin3D Download Existing GLB / 下载已有3D模型",
 }

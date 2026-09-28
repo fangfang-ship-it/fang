@@ -1,6 +1,7 @@
-"""Douyin3D generation nodes for ComfyUI.
+"""AI Studio 3D generation nodes for ComfyUI.
 
 Credentials are read from environment variables and are never stored in workflow JSON.
+The public node keeps its original class name so existing ByteArtist workflows continue to load.
 """
 from __future__ import annotations
 
@@ -79,6 +80,47 @@ def _post(path: str, payload: dict[str, Any], timeout: float = 60) -> dict[str, 
     return data
 
 
+def _uploaded_url(data: dict[str, Any]) -> str:
+    """Return the public image URL from the current AI Studio upload response."""
+    candidates: list[Any] = [data]
+    while candidates:
+        item = candidates.pop(0)
+        if isinstance(item, dict):
+            for key in ("url", "image_url", "download_url"):
+                value = item.get(key)
+                if isinstance(value, str) and value.startswith(("http://", "https://")):
+                    return value
+            candidates.extend(item.values())
+        elif isinstance(item, list):
+            candidates.extend(item)
+    raise Douyin3DError(f"Upload response has no image URL: {json.dumps(data, ensure_ascii=False)[:800]}")
+
+
+def _upload_comfy_image(image: Any) -> str:
+    """Encode the first ComfyUI IMAGE batch item as PNG and upload it to AI Studio."""
+    try:
+        import numpy as np
+        from PIL import Image
+    except ImportError as exc:
+        raise Douyin3DError("IMAGE upload requires NumPy and Pillow from the ComfyUI runtime.") from exc
+    if image is None or not hasattr(image, "detach"):
+        raise Douyin3DError("image must be a ComfyUI IMAGE tensor.")
+    array = image.detach().to(device="cpu").float().numpy()
+    if array.ndim != 4 or array.shape[0] < 1 or array.shape[-1] not in (3, 4):
+        raise Douyin3DError(f"Expected IMAGE shape [B,H,W,3|4], got {array.shape}.")
+    pixels = (np.clip(array[0], 0.0, 1.0) * 255.0).round().astype(np.uint8)
+    mode = "RGBA" if pixels.shape[-1] == 4 else "RGB"
+    from io import BytesIO
+    buffer = BytesIO()
+    Image.fromarray(pixels, mode=mode).save(buffer, format="PNG")
+    payload = {
+        "base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+        "file_name": f"byteartist_{int(time.time() * 1000)}.png",
+        "custom_path": "byteartist/douyin3d",
+    }
+    return _uploaded_url(_post("/api/v1/files/upload", payload, timeout=120))
+
+
 def _extract_asset(data: dict[str, Any]) -> dict[str, Any] | None:
     """Accept the list/detail/status response shapes observed in AI Studio."""
     candidates: list[Any] = []
@@ -151,6 +193,10 @@ def download_glb(url: str, asset_id: int, timeout: float = 120) -> Path:
     if target.stat().st_size < 12:
         target.unlink(missing_ok=True)
         raise Douyin3DError("Downloaded GLB is empty or invalid.")
+    with target.open("rb") as model_file:
+        if model_file.read(4) != b"glTF":
+            target.unlink(missing_ok=True)
+            raise Douyin3DError("Downloaded file is not a valid binary glTF (GLB).")
     return target
 
 
@@ -184,22 +230,148 @@ class Douyin3DDownloadGLB:
         return str(path), glb_url, int(asset_id)
 
 
+_SUPPLIER_IDS = {
+    "Douyin3D": "douyin3d",
+    "混元3D": "hunyuan3d",
+    "Poly3D": "module",
+    "Rodin": "rodin",
+    "Seed3D": "seed3d",
+    "Tripo3D": "tripo3d",
+}
+_MODEL_PROFILES = [
+    "推荐（随供应商）",
+    "Douyin V3.1-fast", "Douyin V3.1",
+    "混元 3.0", "混元 3.1", "混元 Express",
+    "Rodin Gen-1", "Rodin Gen-2", "Rodin Gen-2.5",
+    "Seed3D 2.0",
+    "Tripo v3.1", "Tripo v3.0", "Tripo v2.5", "Tripo P1", "Tripo P2 Preview",
+]
+_QUALITY_LEVELS = {"快速预览": 0, "标准": 1, "高质量": 2, "超高质量": 3}
+
+
+def _vendor_model(vendor: str, profile: str) -> int | None:
+    mappings = {
+        "douyin3d": {"Douyin V3.1": 0, "Douyin V3.1-fast": 1},
+        "hunyuan3d": {"混元 3.0": 0, "混元 3.1": 1, "混元 Express": 2},
+        "rodin": {"Rodin Gen-1": 0, "Rodin Gen-2": 4, "Rodin Gen-2.5": 7},
+        "seed3d": {"Seed3D 2.0": 0},
+        "tripo3d": {
+            "Tripo P1": 0, "Tripo v3.1": 2, "Tripo v3.0": 3,
+            "Tripo v2.5": 4, "Tripo P2 Preview": 5,
+        },
+    }
+    defaults = {"douyin3d": 1, "hunyuan3d": 0, "rodin": 7, "seed3d": 0, "tripo3d": 2}
+    return mappings.get(vendor, {}).get(profile, defaults.get(vendor))
+
+
+def _build_vendor_fields(
+    vendor: str,
+    model_profile: str,
+    quality_preset: str,
+    geometry_quality: str,
+    texture_quality: str,
+    faces: int,
+    texture_size: int,
+    enable_pbr: bool,
+    seed: int,
+    poly_style: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build the vendor-specific fields used by the current AI Studio web client."""
+    level = _QUALITY_LEVELS.get(quality_preset, 2)
+    custom_quality = {"low": 0, "middle": 1, "high": 2, "ultra": 3}
+    geo_level = custom_quality[geometry_quality] if quality_preset == "自定义" else level
+    tex_level = custom_quality[texture_quality] if quality_preset == "自定义" else level
+    faces = max(10_000, min(1_000_000, int(faces)))
+    seed = max(0, min(65_535, int(seed)))
+    model = _vendor_model(vendor, model_profile)
+
+    if vendor == "douyin3d":
+        return {"douyin3d_params": {
+            "style": 0,
+            "model_version": model,
+            "gene_quality_geo": geo_level,
+            "gene_quality_tex": tex_level,
+            "faces_num": faces,
+            "uv_size": int(texture_size),
+            "enable_texture": True,
+            "enable_pbr": bool(enable_pbr),
+            "delight_strength": 0,
+            "seed_geo": seed,
+            "seed_tex": seed,
+            "output_format": "glb",
+            "split_model": False,
+            "quad_remesh": False,
+        }}, {}
+    if vendor == "hunyuan3d":
+        params = {"model": model, "enable_pbr": bool(enable_pbr)}
+        if model != 2:
+            params.update({"face_count": faces, "generate_type": 0})
+        else:
+            params.update({"result_format": 1, "enable_geometry": True})
+        return {"hunyuan3d_params": params}, {}
+    if vendor == "module":
+        style_map = {
+            "不选风格": "", "低模玩具": "worldplay-lowpoly-toy-v1",
+            "黏土手办": "worldplay-clay-figurine-v1",
+            "机械积木": "worldplay-mech-brick-v1",
+        }
+        style = style_map[poly_style]
+        return {}, ({"moduleStyleProfile": style} if style else {})
+    if vendor == "rodin":
+        tier = model
+        if model == 7 and quality_preset != "自定义":
+            tier = {0: 5, 1: 7, 2: 8, 3: 9}[level]
+        return {"rodin_params": {
+            "tier": tier, "geometry_file_format": 0, "seed": seed,
+            "material": 0, "mesh_mode": 1,
+        }}, {}
+    if vendor == "seed3d":
+        subdivision = min(2, level if quality_preset != "自定义" else geo_level)
+        return {"seed3d_params": {"fileformat": 0, "subdivisionlevel": subdivision}}, {}
+    if vendor == "tripo3d":
+        tripo_geo = 1 if geo_level >= 2 else 0
+        tripo_tex = 2 if tex_level >= 3 else (1 if tex_level >= 2 else 0)
+        return {"tripo_params": {
+            "model_version": model,
+            "geometry_quality": tripo_geo,
+            "texture_quality": tripo_tex,
+            "face_limit": faces,
+            "orientation": 0,
+            "texture_alignment": 0,
+            "texture": True,
+            "pbr": bool(enable_pbr),
+            "quad": False,
+            "smart_low_poly": quality_preset == "快速预览",
+            "generate_parts": False,
+            "export_uv": True,
+            "auto_size": False,
+            "model_seed": seed,
+            "texture_seed": seed,
+        }}, {}
+    raise Douyin3DError(f"Unsupported AI Studio vendor: {vendor}")
+
+
 class Douyin3DGenerate:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "required": {
+                "supplier": (list(_SUPPLIER_IDS), {"default": "Douyin3D"}),
+                "model_profile": (_MODEL_PROFILES, {"default": "推荐（随供应商）"}),
+                "quality_preset": (["快速预览", "标准", "高质量", "超高质量", "自定义"], {"default": "标准"}),
                 "prompt": ("STRING", {"default": "一个白色陶瓷马克杯，完整单体，纯色背景，无文字", "multiline": True}),
-                "model_version": (["V3.1-fast", "V3.1"], {"default": "V3.1-fast"}),
                 "geometry_quality": (["low", "middle", "high", "ultra"], {"default": "high"}),
                 "texture_quality": (["low", "middle", "high", "ultra"], {"default": "high"}),
-                "faces": ("INT", {"default": 500000, "min": 10000, "max": 1000000, "step": 10000}),
+                "faces": ("INT", {"default": 300000, "min": 10000, "max": 1000000, "step": 10000}),
                 "texture_size": ([1024, 2048, 4096], {"default": 2048}),
                 "enable_pbr": ("BOOLEAN", {"default": True}),
+                "seed": ("INT", {"default": 0, "min": 0, "max": 65535}),
+                "poly_style": (["不选风格", "低模玩具", "黏土手办", "机械积木"], {"default": "不选风格"}),
                 "timeout_minutes": ("INT", {"default": 20, "min": 1, "max": 60}),
                 "poll_seconds": ("INT", {"default": 10, "min": 2, "max": 60}),
             },
             "optional": {
+                "image": ("IMAGE",),
                 "image_url": ("STRING", {"default": ""}),
             },
         }
@@ -209,50 +381,51 @@ class Douyin3DGenerate:
     FUNCTION = "generate"
     CATEGORY = "Fang/3D"
     OUTPUT_NODE = True
-    DESCRIPTION = "调用 Douyin3D，轮询至完成并将 GLB 下载到 ComfyUI output/douyin3d。"
+    DESCRIPTION = "选择 AI Studio 供应商与质量参数，生成 3D 并将 GLB 下载到 ComfyUI output/douyin3d。"
 
     def generate(
         self,
+        supplier: str,
+        model_profile: str,
+        quality_preset: str,
         prompt: str,
-        model_version: str = "V3.1-fast",
         geometry_quality: str = "high",
         texture_quality: str = "high",
-        faces: int = 500000,
+        faces: int = 300000,
         texture_size: int = 2048,
         enable_pbr: bool = True,
+        seed: int = 0,
+        poly_style: str = "不选风格",
         timeout_minutes: int = 20,
         poll_seconds: int = 10,
+        image: Any = None,
         image_url: str = "",
     ):
         prompt = prompt.strip()
         image_url = image_url.strip()
+        vendor = _SUPPLIER_IDS.get(supplier)
+        if not vendor:
+            raise Douyin3DError(f"Unknown supplier: {supplier}")
+        if vendor == "module" and (image is not None or image_url):
+            raise Douyin3DError("Poly3D currently supports text-to-3D only in this node.")
+        if image is not None:
+            image_url = _upload_comfy_image(image)
         if not prompt and not image_url:
-            raise Douyin3DError("Provide prompt or image_url.")
+            raise Douyin3DError("Provide prompt or image.")
         source_type = "image" if image_url else "prompt"
-        params = {
-            "Style": "gagas",
-            "ModelVersion": model_version,
-            "GeneQualityGeo": geometry_quality,
-            "GeneQualityTex": texture_quality,
-            "FacesNum": int(faces),
-            "UVSize": int(texture_size),
-            "EnableTexture": True,
-            "DelightStrength": "weak",
-            "EnablePbr": bool(enable_pbr),
-            "SeedGeo": 0,
-            "SeedTex": 0,
-            "OutputFormat": "glb",
-            "SplitModel": False,
-            "QuadRemesh": False,
-        }
+        vendor_fields, meta = _build_vendor_fields(
+            vendor, model_profile, quality_preset, geometry_quality, texture_quality,
+            faces, texture_size, enable_pbr, seed, poly_style,
+        )
         response = _post("/api/v1/assets/generate", {
             "project_id": 0,
-            "vendor": "douyin3d",
+            "vendor": vendor,
             "source_type": source_type,
             "prompt": prompt,
             "image_url": image_url,
             "description": prompt or "ByteArtist image-to-3D",
-            "douyin3d_params": params,
+            "meta": json.dumps(meta, ensure_ascii=False),
+            **vendor_fields,
         })
         asset_id = _asset_id(response)
         deadline = time.monotonic() + max(1, int(timeout_minutes)) * 60

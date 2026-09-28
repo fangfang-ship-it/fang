@@ -82,7 +82,10 @@ class Douyin3DTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory, \
                 mock.patch.object(module, "_post", side_effect=fake_post), \
                 mock.patch.object(module, "download_glb", return_value=Path(directory) / "42.glb"):
-            result = module.Douyin3DGenerate().generate("cup", timeout_minutes=1, poll_seconds=2)
+            result = module.Douyin3DGenerate().generate(
+                "Douyin3D", "推荐（随供应商）", "标准", "cup",
+                timeout_minutes=1, poll_seconds=2,
+            )
 
         self.assertEqual(result[:3], (str(Path(directory) / "42.glb"), "https://x/model.glb", 42))
         self.assertEqual([call[0] for call in calls], [
@@ -93,8 +96,79 @@ class Douyin3DTests(unittest.TestCase):
         submit = calls[0][1]
         self.assertEqual(submit["vendor"], "douyin3d")
         self.assertEqual(submit["source_type"], "prompt")
-        self.assertEqual(submit["douyin3d_params"]["OutputFormat"], "glb")
+        self.assertEqual(submit["douyin3d_params"]["output_format"], "glb")
         self.assertEqual(json.loads(result[3])["status"], "success")
+
+    def test_upload_response_url_is_extracted_from_nested_data(self):
+        self.assertEqual(
+            module._uploaded_url({"data": {"url": "https://x/image.png"}}),
+            "https://x/image.png",
+        )
+
+    def test_comfy_image_upload_url_is_used_for_image_generation(self):
+        calls = []
+
+        def fake_post(path, payload, timeout=60):
+            calls.append((path, payload))
+            if path.endswith("generate"):
+                return {"data": {"asset_id": 77}}
+            if path.endswith("status"):
+                return {"assets": [{"asset_id": 77, "status": "success", "progress": 100}]}
+            return {"asset": {"asset_id": 77, "status": "success", "artifacts": [
+                {"primary": True, "url": "https://x/model.glb"}
+            ]}}
+
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(module, "_post", side_effect=fake_post), \
+                mock.patch.object(module, "_upload_comfy_image", return_value="https://x/upload.png"), \
+                mock.patch.object(module, "download_glb", return_value=Path(directory) / "77.glb"):
+            module.Douyin3DGenerate().generate(
+                "Tripo3D", "推荐（随供应商）", "标准", "", image=object(),
+                timeout_minutes=1, poll_seconds=2,
+            )
+
+        submit = calls[0][1]
+        self.assertEqual(submit["source_type"], "image")
+        self.assertEqual(submit["image_url"], "https://x/upload.png")
+        self.assertIn("tripo_params", submit)
+
+    def test_vendor_payloads_use_ai_studio_field_names(self):
+        common = ("推荐（随供应商）", "高质量", "high", "high", 300000, 2048, True, 7, "不选风格")
+        cases = {
+            "douyin3d": ("douyin3d_params", "model_version", 1),
+            "hunyuan3d": ("hunyuan3d_params", "model", 0),
+            "rodin": ("rodin_params", "tier", 8),
+            "seed3d": ("seed3d_params", "fileformat", 0),
+            "tripo3d": ("tripo_params", "model_version", 2),
+        }
+        for vendor, (field, key, expected) in cases.items():
+            with self.subTest(vendor=vendor):
+                payload, meta = module._build_vendor_fields(vendor, *common)
+                self.assertEqual(payload[field][key], expected)
+                self.assertEqual(meta, {})
+
+    def test_poly3d_style_is_stored_in_meta(self):
+        payload, meta = module._build_vendor_fields(
+            "module", "推荐（随供应商）", "标准", "high", "high",
+            300000, 2048, True, 0, "黏土手办",
+        )
+        self.assertEqual(payload, {})
+        self.assertEqual(meta["moduleStyleProfile"], "worldplay-clay-figurine-v1")
+
+    def test_poly3d_image_input_is_rejected_until_upload_flow_is_supported(self):
+        with self.assertRaisesRegex(module.Douyin3DError, "text-to-3D only"):
+            module.Douyin3DGenerate().generate(
+                "Poly3D", "推荐（随供应商）", "标准", "toy", image_url="https://x/image.png"
+            )
+
+    def test_download_glb_rejects_html_disguised_as_model(self):
+        import io
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(module, "_output_directory", return_value=Path(directory)), \
+                mock.patch.object(module, "urlopen", return_value=io.BytesIO(b"<html>not a model</html>")):
+            with self.assertRaisesRegex(module.Douyin3DError, "not a valid binary glTF"):
+                module.download_glb("https://x/model.glb", 42)
+            self.assertFalse((Path(directory) / "douyin3d_42.glb").exists())
 
     def test_download_existing_glb_skips_api_authentication(self):
         with tempfile.TemporaryDirectory() as directory, \

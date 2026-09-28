@@ -89,9 +89,20 @@ Load Image（加载图像） → Sky Bottom Stretch 2:1 → Save Image（保存�
 
 
 
-## Douyin3D Generate & Download / 3D 生成并下载
+## AI Studio 3D Generate & Download / 3D 生成并下载
 
-节点分类：`Fang/3D`。节点会提交 Douyin3D 生成任务、轮询状态，并将成功结果下载为 `output/douyin3d/douyin3d_<asset_id>.glb`。
+节点分类：`Fang/3D`。节点支持选择 AI Studio 供应商，提交生成任务、轮询状态，并将成功结果下载为 `output/douyin3d/douyin3d_<asset_id>.glb`。
+
+当前供应商选项：
+
+- `Douyin3D`：V3.1-fast / V3.1
+- `混元3D`：3.0 / 3.1 / Express
+- `Poly3D`：文字生成，并支持低模玩具、黏土手办、机械积木风格
+- `Rodin`：Gen-1 / Gen-2 / Gen-2.5
+- `Seed3D`：Seed3D 2.0
+- `Tripo3D`：v3.1 / v3.0 / v2.5 / P1 / P2 Preview
+
+`quality_preset` 提供快速预览、标准、高质量、超高质量和自定义。选择“推荐（随供应商）”时，节点会自动使用该供应商的推荐模型；误选其他供应商的模型名称时也会安全回退到当前供应商默认模型。
 
 ### 安全配置
 
@@ -123,12 +134,12 @@ export DOUYIN3D_AUTH_SCHEME=''
 ### 最小链路
 
 1. 安装本仓库并重启 ByteArtist/ComfyUI。
-2. 搜索 `Douyin3D Generate & Download / 3D生成并下载`。
-3. 输入测试提示词，先选 `V3.1-fast`，运行节点。
+2. 搜索 `AI Studio 3D Generate & Download / 3D生成并下载`（旧工作流中的节点 ID 保持兼容）。
+3. 选择供应商、模型和质量预设；首次测试建议 `Douyin3D + 推荐（随供应商）+ 快速预览`。
 4. 成功后读取 `glb_path`、`glb_url`、`asset_id`；GLB 文件保存在 ComfyUI 输出目录。
 5. 在原生 `Load 3D` / `Preview 3D` 中选择该 GLB，即可用鼠标旋转、缩放和平移查看。
 
-图生 3D 可将公开可访问的图片地址连接到 `image_url`。直接接收 ComfyUI `IMAGE` 并自动上传，需要服务端确认 `/api/v1/files/upload` 的正式鉴权与上传格式后再启用。
+图生 3D 可将 BA/ComfyUI 文生图节点的 `IMAGE` 直接连接到 `image`。节点会将批次中的第一张图编码为 PNG，通过 AI Studio `POST /api/v1/files/upload` 上传，再把返回的 URL 传给生成接口；也保留 `image_url` 作为调试入口。Poly3D 当前仅开放文字生成，连接图片时会明确报错。
 
 ### 当前接口
 
