@@ -87,3 +87,45 @@ Load Image（加载图像） → Sky Bottom Stretch 2:1 → Save Image（保存�
 - https://docs.comfy.org/custom-nodes/walkthrough
 - https://docs.comfy.org/custom-nodes/backend/datatypes
 
+
+
+## Douyin3D Generate & Download / 3D 生成并下载
+
+节点分类：`Fang/3D`。节点会提交 Douyin3D 生成任务、轮询状态，并将成功结果下载为 `output/douyin3d/douyin3d_<asset_id>.glb`。
+
+### 安全配置
+
+密钥只从运行环境读取，不会写入节点参数或工作流 JSON：
+
+```bash
+export DOUYIN3D_API_KEY='由服务负责人提供的服务端 Key'
+export DOUYIN3D_AUTH_HEADER='Authorization'
+export DOUYIN3D_AUTH_SCHEME='Bearer'
+```
+
+如果接口使用 `X-API-Key: <key>`，设置：
+
+```bash
+export DOUYIN3D_AUTH_HEADER='X-API-Key'
+export DOUYIN3D_AUTH_SCHEME=''
+```
+
+不要把真实 Key、Cookie 或临时 ticket 提交到 GitHub。
+
+### 最小链路
+
+1. 安装本仓库并重启 ByteArtist/ComfyUI。
+2. 搜索 `Douyin3D Generate & Download / 3D生成并下载`。
+3. 输入测试提示词，先选 `V3.1-fast`，运行节点。
+4. 成功后读取 `glb_path`、`glb_url`、`asset_id`；GLB 文件保存在 ComfyUI 输出目录。
+5. 在原生 `Load 3D` / `Preview 3D` 中选择该 GLB，即可用鼠标旋转、缩放和平移查看。
+
+图生 3D 可将公开可访问的图片地址连接到 `image_url`。直接接收 ComfyUI `IMAGE` 并自动上传，需要服务端确认 `/api/v1/files/upload` 的正式鉴权与上传格式后再启用。
+
+### 当前接口
+
+- 提交：`POST /api/v1/assets/generate`
+- 查询状态：`POST /api/v1/assets/status`
+- 资产详情：`POST /api/v1/assets/detail`
+
+节点会自动生成写接口所需的时间 ticket。正式环境仍必须提供可用于服务端调用的 Key；浏览器 Cookie 不适合作为节点凭证。
