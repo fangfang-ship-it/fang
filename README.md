@@ -95,7 +95,15 @@ Load Image（加载图像） → Sky Bottom Stretch 2:1 → Save Image（保存�
 
 ### 安全配置
 
-密钥只从运行环境读取，不会写入节点参数或工作流 JSON：
+凭证只从运行环境读取，不会写入节点参数或工作流 JSON。若要临时复用 `3d.bytedance.net` 的网站登录态并消耗该账号的网站积分，可在 ByteArtist/ComfyUI **运行环境**中注入：
+
+```bash
+export DOUYIN3D_CAS_SESSION='<仅填写 AGW_CAS_SESSION 的值>'
+```
+
+节点会在请求时生成 `Cookie: AGW_CAS_SESSION=<value>`。该环境变量优先于 API Key；不要填写完整的 `Cookie:` 请求头，也不要把它放入节点输入、工作流、截图、聊天记录或仓库。CAS 会话会过期，失效后需要在运行环境中更新并重启服务，因此此模式仅适合短期联调。
+
+若已经取得服务端 Key，仍可使用更稳定的正式方式：
 
 ```bash
 export DOUYIN3D_API_KEY='由服务负责人提供的服务端 Key'
@@ -110,7 +118,7 @@ export DOUYIN3D_AUTH_HEADER='X-API-Key'
 export DOUYIN3D_AUTH_SCHEME=''
 ```
 
-不要把真实 Key、Cookie 或临时 ticket 提交到 GitHub。
+不要把真实 Key、Cookie、CAS Session 或临时 ticket 提交到 GitHub。
 
 ### 最小链路
 
@@ -128,7 +136,7 @@ export DOUYIN3D_AUTH_SCHEME=''
 - 查询状态：`POST /api/v1/assets/status`
 - 资产详情：`POST /api/v1/assets/detail`
 
-节点会自动生成写接口所需的时间 ticket。正式环境仍必须提供可用于服务端调用的 Key；浏览器 Cookie 不适合作为节点凭证。
+节点会自动生成写接口所需的时间 ticket。正式环境建议使用可用于服务端调用的 Key；`DOUYIN3D_CAS_SESSION` 仅作为网站积分链路的短期联调方案，会随网站会话过期。
 
 ### 无 Key 的下游验证节点
 

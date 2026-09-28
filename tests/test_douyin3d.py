@@ -29,9 +29,29 @@ class Douyin3DTests(unittest.TestCase):
         with mock.patch.dict(module.os.environ, env, clear=True):
             self.assertEqual(module._auth_headers(), {"X-API-Key": "secret"})
 
+    def test_cas_session_auth_takes_priority(self):
+        env = {
+            "DOUYIN3D_CAS_SESSION": "temporary-session",
+            "DOUYIN3D_API_KEY": "api-secret",
+        }
+        with mock.patch.dict(module.os.environ, env, clear=True):
+            self.assertEqual(
+                module._auth_headers(),
+                {"Cookie": "AGW_CAS_SESSION=temporary-session"},
+            )
+
+    def test_cas_session_rejects_header_injection(self):
+        with mock.patch.dict(
+            module.os.environ,
+            {"DOUYIN3D_CAS_SESSION": "session\r\nX-Evil: yes"},
+            clear=True,
+        ):
+            with self.assertRaisesRegex(module.Douyin3DError, "invalid characters"):
+                module._auth_headers()
+
     def test_credentials_are_required(self):
         with mock.patch.dict(module.os.environ, {}, clear=True):
-            with self.assertRaisesRegex(module.Douyin3DError, "DOUYIN3D_API_KEY"):
+            with self.assertRaisesRegex(module.Douyin3DError, "DOUYIN3D_CAS_SESSION"):
                 module._auth_headers()
 
     def test_extract_nested_asset_and_url(self):

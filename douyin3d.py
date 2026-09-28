@@ -30,11 +30,18 @@ def _ticket() -> str:
 
 
 def _auth_headers() -> dict[str, str]:
+    cas_session = os.environ.get("DOUYIN3D_CAS_SESSION", "").strip()
+    if cas_session:
+        if any(character in cas_session for character in ("\r", "\n", ";")):
+            raise Douyin3DError("DOUYIN3D_CAS_SESSION contains invalid characters.")
+        return {"Cookie": f"AGW_CAS_SESSION={cas_session}"}
+
     key = os.environ.get("DOUYIN3D_API_KEY", "").strip()
     if not key:
         raise Douyin3DError(
-            "DOUYIN3D_API_KEY is not configured. Inject it into the ByteArtist "
-            "runtime; do not put credentials in the workflow or Git repository."
+            "Neither DOUYIN3D_CAS_SESSION nor DOUYIN3D_API_KEY is configured. "
+            "Inject one into the ByteArtist runtime; do not put credentials in "
+            "the workflow or Git repository."
         )
     header = os.environ.get("DOUYIN3D_AUTH_HEADER", "Authorization").strip()
     scheme = os.environ.get("DOUYIN3D_AUTH_SCHEME", "Bearer").strip()

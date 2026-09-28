@@ -2,6 +2,8 @@
 .env.*
 *.key
 *.pem
+*.cookie
+*.secret
 __pycache__/
 .pytest_cache/
 output/
