@@ -123,7 +123,7 @@ def _upload_comfy_image(image: Any, cas_session: str = "") -> str:
     buffer = BytesIO()
     Image.fromarray(pixels, mode=mode).save(buffer, format="PNG")
     payload = {
-        "base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
+        "file_data": base64.b64encode(buffer.getvalue()).decode("ascii"),
         "file_name": f"byteartist_{int(time.time() * 1000)}.png",
         "custom_path": "byteartist/douyin3d",
     }
@@ -211,6 +211,11 @@ def download_glb(url: str, asset_id: int, timeout: float = 120) -> Path:
     return target
 
 
+def _preview_path(path: Path) -> str:
+    """Return the output-relative path expected by ComfyUI Preview3D."""
+    return f"douyin3d/{path.name}"
+
+
 class Douyin3DDownloadGLB:
     """Download an existing GLB URL for downstream Preview 3D validation."""
 
@@ -238,7 +243,7 @@ class Douyin3DDownloadGLB:
         if not glb_url.lower().startswith(("https://", "http://")):
             raise Douyin3DError("glb_url must be an HTTP or HTTPS URL.")
         path = download_glb(glb_url, int(asset_id))
-        return str(path), glb_url, int(asset_id)
+        return _preview_path(path), glb_url, int(asset_id)
 
 
 _SUPPLIER_IDS = {
@@ -475,4 +480,4 @@ class Douyin3DGenerate:
         if not url:
             raise Douyin3DError(f"Asset {asset_id} completed without a GLB URL.")
         path = download_glb(url, asset_id)
-        return str(path), url, asset_id, json.dumps(asset, ensure_ascii=False)
+        return _preview_path(path), url, asset_id, json.dumps(asset, ensure_ascii=False)

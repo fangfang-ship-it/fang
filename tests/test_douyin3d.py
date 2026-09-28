@@ -1,6 +1,7 @@
 import base64
 import importlib.util
 import json
+import numpy as np
 from pathlib import Path
 import sys
 import tempfile
@@ -65,6 +66,21 @@ class Douyin3DTests(unittest.TestCase):
             with self.assertRaisesRegex(module.Douyin3DError, "DOUYIN3D_CAS_SESSION"):
                 module._auth_headers()
 
+    def test_image_upload_uses_ai_studio_file_data_field(self):
+        image = mock.MagicMock()
+        image.detach.return_value.to.return_value.float.return_value.numpy.return_value = np.zeros(
+            (1, 2, 2, 3), dtype=np.float32
+        )
+        with mock.patch.object(
+            module, "_post", return_value={"url": "https://x/upload.png"}
+        ) as mocked_post:
+            url = module._upload_comfy_image(image, cas_session="node-session")
+        self.assertEqual(url, "https://x/upload.png")
+        payload = mocked_post.call_args.args[1]
+        self.assertIn("file_data", payload)
+        self.assertNotIn("base64", payload)
+        self.assertEqual(mocked_post.call_args.kwargs["cas_session"], "node-session")
+
     def test_extract_nested_asset_and_url(self):
         asset = {
             "asset_id": 42,
@@ -98,7 +114,7 @@ class Douyin3DTests(unittest.TestCase):
                 cas_session="node-session", timeout_minutes=1, poll_seconds=2,
             )
 
-        self.assertEqual(result[:3], (str(Path(directory) / "42.glb"), "https://x/model.glb", 42))
+        self.assertEqual(result[:3], ("douyin3d/42.glb", "https://x/model.glb", 42))
         self.assertEqual([call[0] for call in calls], [
             "/api/v1/assets/generate",
             "/api/v1/assets/status",
@@ -194,7 +210,7 @@ class Douyin3DTests(unittest.TestCase):
             )
 
         self.assertEqual(result, (
-            str(Path(directory) / "douyin3d_42.glb"),
+            "douyin3d/douyin3d_42.glb",
             "https://x/model.glb",
             42,
         ))
