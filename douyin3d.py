@@ -147,6 +147,36 @@ def download_glb(url: str, asset_id: int, timeout: float = 120) -> Path:
     return target
 
 
+class Douyin3DDownloadGLB:
+    """Download an existing GLB URL for downstream Preview 3D validation."""
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "glb_url": ("STRING", {
+                    "default": "https://lf3-creative.dailygn.com/obj/ai-studio/asset/models/1790582042_6372692172.glb",
+                    "multiline": False,
+                }),
+                "asset_id": ("INT", {"default": 6372692172, "min": 1}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING", "INT")
+    RETURN_NAMES = ("glb_path", "glb_url", "asset_id")
+    FUNCTION = "download"
+    CATEGORY = "Fang/3D"
+    OUTPUT_NODE = True
+    DESCRIPTION = "下载已有 GLB 到 ComfyUI output/douyin3d，用于无 Key 验证 Preview 3D 下游链路。"
+
+    def download(self, glb_url: str, asset_id: int):
+        glb_url = glb_url.strip()
+        if not glb_url.lower().startswith(("https://", "http://")):
+            raise Douyin3DError("glb_url must be an HTTP or HTTPS URL.")
+        path = download_glb(glb_url, int(asset_id))
+        return str(path), glb_url, int(asset_id)
+
+
 class Douyin3DGenerate:
     @classmethod
     def INPUT_TYPES(cls):

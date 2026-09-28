@@ -76,6 +76,28 @@ class Douyin3DTests(unittest.TestCase):
         self.assertEqual(submit["douyin3d_params"]["OutputFormat"], "glb")
         self.assertEqual(json.loads(result[3])["status"], "success")
 
+    def test_download_existing_glb_skips_api_authentication(self):
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(
+                    module,
+                    "download_glb",
+                    return_value=Path(directory) / "douyin3d_42.glb",
+                ) as mocked_download:
+            result = module.Douyin3DDownloadGLB().download(
+                "https://x/model.glb", 42
+            )
+
+        self.assertEqual(result, (
+            str(Path(directory) / "douyin3d_42.glb"),
+            "https://x/model.glb",
+            42,
+        ))
+        mocked_download.assert_called_once_with("https://x/model.glb", 42)
+
+    def test_download_existing_glb_rejects_non_http_url(self):
+        with self.assertRaisesRegex(module.Douyin3DError, "HTTP or HTTPS"):
+            module.Douyin3DDownloadGLB().download("file:///tmp/model.glb", 42)
+
 
 if __name__ == "__main__":
     unittest.main()

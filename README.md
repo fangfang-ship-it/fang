@@ -129,3 +129,9 @@ export DOUYIN3D_AUTH_SCHEME=''
 - 资产详情：`POST /api/v1/assets/detail`
 
 节点会自动生成写接口所需的时间 ticket。正式环境仍必须提供可用于服务端调用的 Key；浏览器 Cookie 不适合作为节点凭证。
+
+### 无 Key 的下游验证节点
+
+`Douyin3D Download Existing GLB / 下载已有3D模型` 用于下载已经成功生成、且具有公开 URL 的 GLB，不调用生成 API，也不读取 Key。将其 `glb_path` 输出直接连接到原生 `Preview 3D` 的 `model_file`，可先验证“GLB 下载 → ByteArtist 3D 预览 → 鼠标旋转/缩放/平移”链路。
+
+该节点仅用于验证生成后的下游链路；它不能替代正式的 Douyin3D 生成鉴权。

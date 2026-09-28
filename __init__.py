@@ -1,6 +1,6 @@
 """Fang ComfyUI custom nodes."""
 from .core import stretch_bottom_array
-from .douyin3d import Douyin3DGenerate
+from .douyin3d import Douyin3DDownloadGLB, Douyin3DGenerate
 from .gaussian_blur import SkyGaussianBlurFloat
 
 
@@ -43,9 +43,11 @@ NODE_CLASS_MAPPINGS = {
     "SkyBottomStretchTo2To1": SkyBottomStretchTo2To1,
     "SkyGaussianBlurFloat": SkyGaussianBlurFloat,
     "Douyin3DGenerate": Douyin3DGenerate,
+    "Douyin3DDownloadGLB": Douyin3DDownloadGLB,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
     "SkyGaussianBlurFloat": "Sky Gaussian Blur Float / 高斯模糊（小数半径）",
     "Douyin3DGenerate": "Douyin3D Generate & Download / 3D生成并下载",
+    "Douyin3DDownloadGLB": "Douyin3D Download Existing GLB / 下载已有3D模型",
 }
