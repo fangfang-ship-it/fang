@@ -157,3 +157,14 @@ export DOUYIN3D_AUTH_SCHEME=''
 `Douyin3D Download Existing GLB / 下载已有3D模型` 用于下载已经成功生成、且具有公开 URL 的 GLB，不调用生成 API，也不读取 Key。将其 `glb_path` 输出直接连接到原生 `Preview 3D` 的 `model_file`，可先验证“GLB 下载 → ByteArtist 3D 预览 → 鼠标旋转/缩放/平移”链路。
 
 该节点仅用于验证生成后的下游链路；它不能替代正式的 Douyin3D 生成鉴权。
+
+## Fang GLB Web Viewer / 浏览器 3D 预览
+
+当 ByteArtist Next/Simple Canvas 无法挂载原生 `Preview 3D` 的交互区域时，使用 `Fang GLB Web Viewer / 浏览器3D预览`：
+
+1. 将 `AI Studio 3D Generate & Download` 的 `glb_path` 连接到 Viewer 的 `model_file`。
+2. 运行 Viewer 节点。节点会校验文件确实位于 ComfyUI `output` 目录且扩展名为 `.glb`。
+3. 点击节点中的 `打开 3D Viewer / Open Viewer`。如果浏览器阻止自动弹窗，手动点击该按钮即可。
+4. 独立 Viewer 页面支持左键旋转、滚轮缩放、右键/双指平移、自动旋转、视角复位、背景切换、全屏与 GLB 下载。
+
+Viewer 只允许读取 ComfyUI `output` 下的 GLB，拒绝目录穿越和任意服务器文件访问。页面通过同源接口读取模型，避免把服务器绝对路径直接暴露给浏览器。当前 Viewer 使用 `@google/model-viewer` 的公开 ES Module；若工作环境拦截外部 CDN，页面会显示加载错误，此时需将该前端依赖内置到插件中。
