@@ -30,19 +30,23 @@ def _ticket() -> str:
     return base64.b64encode(str(timestamp).encode("ascii")).decode("ascii")
 
 
-def _auth_headers() -> dict[str, str]:
-    cas_session = os.environ.get("DOUYIN3D_CAS_SESSION", "").strip()
+def _auth_headers(cas_session: str = "") -> dict[str, str]:
+    cas_session = cas_session.strip()
+    if cas_session.startswith("AGW_CAS_SESSION="):
+        cas_session = cas_session.removeprefix("AGW_CAS_SESSION=").strip()
+    if not cas_session:
+        cas_session = os.environ.get("DOUYIN3D_CAS_SESSION", "").strip()
     if cas_session:
         if any(character in cas_session for character in ("\r", "\n", ";")):
-            raise Douyin3DError("DOUYIN3D_CAS_SESSION contains invalid characters.")
+            raise Douyin3DError("CAS session contains invalid characters; paste only the AGW_CAS_SESSION value.")
         return {"Cookie": f"AGW_CAS_SESSION={cas_session}"}
 
     key = os.environ.get("DOUYIN3D_API_KEY", "").strip()
     if not key:
         raise Douyin3DError(
-            "Neither DOUYIN3D_CAS_SESSION nor DOUYIN3D_API_KEY is configured. "
-            "Inject one into the ByteArtist runtime; do not put credentials in "
-            "the workflow or Git repository."
+            "No CAS session or API key is configured. Paste the AGW_CAS_SESSION value "
+            "into cas_session, or configure DOUYIN3D_CAS_SESSION/DOUYIN3D_API_KEY "
+            "in the ByteArtist runtime."
         )
     header = os.environ.get("DOUYIN3D_AUTH_HEADER", "Authorization").strip()
     scheme = os.environ.get("DOUYIN3D_AUTH_SCHEME", "Bearer").strip()
@@ -50,12 +54,17 @@ def _auth_headers() -> dict[str, str]:
     return {header: value}
 
 
-def _post(path: str, payload: dict[str, Any], timeout: float = 60) -> dict[str, Any]:
+def _post(
+    path: str,
+    payload: dict[str, Any],
+    timeout: float = 60,
+    cas_session: str = "",
+) -> dict[str, Any]:
     payload = dict(payload)
     if any(word in path for word in ("generate", "upload", "create", "update")):
         payload.setdefault("ticket", _ticket())
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    headers.update(_auth_headers())
+    headers.update(_auth_headers(cas_session))
     request = Request(
         f"{_API_BASE}{path}",
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -96,7 +105,7 @@ def _uploaded_url(data: dict[str, Any]) -> str:
     raise Douyin3DError(f"Upload response has no image URL: {json.dumps(data, ensure_ascii=False)[:800]}")
 
 
-def _upload_comfy_image(image: Any) -> str:
+def _upload_comfy_image(image: Any, cas_session: str = "") -> str:
     """Encode the first ComfyUI IMAGE batch item as PNG and upload it to AI Studio."""
     try:
         import numpy as np
@@ -118,7 +127,9 @@ def _upload_comfy_image(image: Any) -> str:
         "file_name": f"byteartist_{int(time.time() * 1000)}.png",
         "custom_path": "byteartist/douyin3d",
     }
-    return _uploaded_url(_post("/api/v1/files/upload", payload, timeout=120))
+    return _uploaded_url(_post(
+        "/api/v1/files/upload", payload, timeout=120, cas_session=cas_session
+    ))
 
 
 def _extract_asset(data: dict[str, Any]) -> dict[str, Any] | None:
@@ -360,6 +371,10 @@ class Douyin3DGenerate:
                 "model_profile": (_MODEL_PROFILES, {"default": "推荐（随供应商）"}),
                 "quality_preset": (["快速预览", "标准", "高质量", "超高质量", "自定义"], {"default": "标准"}),
                 "prompt": ("STRING", {"default": "一个白色陶瓷马克杯，完整单体，纯色背景，无文字", "multiline": True}),
+                "cas_session": ("STRING", {
+                    "default": "", "password": True,
+                    "tooltip": "AGW_CAS_SESSION 的值；会随工作流保存，请勿分享或发布。",
+                }),
                 "geometry_quality": (["low", "middle", "high", "ultra"], {"default": "high"}),
                 "texture_quality": (["low", "middle", "high", "ultra"], {"default": "high"}),
                 "faces": ("INT", {"default": 300000, "min": 10000, "max": 1000000, "step": 10000}),
@@ -382,7 +397,10 @@ class Douyin3DGenerate:
     FUNCTION = "generate"
     CATEGORY = "Fang/3D"
     OUTPUT_NODE = True
-    DESCRIPTION = "选择 AI Studio 供应商与质量参数，生成 3D 并将 GLB 下载到 ComfyUI output/douyin3d。"
+    DESCRIPTION = (
+        "选择 AI Studio 供应商与质量参数，生成 3D 并将 GLB 下载到 ComfyUI output/douyin3d。"
+        "cas_session 会随工作流保存，请勿分享或发布含凭证的工作流。"
+    )
 
     def generate(
         self,
@@ -390,6 +408,7 @@ class Douyin3DGenerate:
         model_profile: str,
         quality_preset: str,
         prompt: str,
+        cas_session: str = "",
         geometry_quality: str = "high",
         texture_quality: str = "high",
         faces: int = 300000,
@@ -411,7 +430,7 @@ class Douyin3DGenerate:
         if vendor == "module" and (image is not None or image_url):
             raise Douyin3DError("Poly3D currently supports text-to-3D only in this node.")
         if image is not None:
-            image_url = _upload_comfy_image(image)
+            image_url = _upload_comfy_image(image, cas_session=cas_session)
         if not prompt and not image_url:
             raise Douyin3DError("Provide prompt or image.")
         source_type = "image" if image_url else "prompt"
@@ -428,7 +447,7 @@ class Douyin3DGenerate:
             "description": prompt or "ByteArtist image-to-3D",
             "meta": json.dumps(meta, ensure_ascii=False),
             **vendor_fields,
-        })
+        }, cas_session=cas_session)
         asset_id = _asset_id(response)
         deadline = time.monotonic() + max(1, int(timeout_minutes)) * 60
         asset: dict[str, Any] | None = None
@@ -437,7 +456,7 @@ class Douyin3DGenerate:
                 "project_id": 0,
                 "asset_ids": [asset_id],
                 "include_deleted": False,
-            })
+            }, cas_session=cas_session)
             asset = _extract_asset(status_data)
             if asset:
                 status = str(asset.get("status", "")).lower()
@@ -448,7 +467,9 @@ class Douyin3DGenerate:
             time.sleep(max(2, int(poll_seconds)))
         else:
             raise Douyin3DError(f"Timed out waiting for asset {asset_id}.")
-        detail = _post("/api/v1/assets/detail", {"asset_id": asset_id})
+        detail = _post(
+            "/api/v1/assets/detail", {"asset_id": asset_id}, cas_session=cas_session
+        )
         asset = _extract_asset(detail) or asset or {}
         url = _artifact_url(asset)
         if not url:

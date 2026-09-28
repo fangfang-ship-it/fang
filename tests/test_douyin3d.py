@@ -40,6 +40,17 @@ class Douyin3DTests(unittest.TestCase):
                 {"Cookie": "AGW_CAS_SESSION=temporary-session"},
             )
 
+    def test_node_cas_session_overrides_environment_and_accepts_cookie_pair(self):
+        with mock.patch.dict(
+            module.os.environ,
+            {"DOUYIN3D_CAS_SESSION": "environment-session"},
+            clear=True,
+        ):
+            self.assertEqual(
+                module._auth_headers("AGW_CAS_SESSION=node-session"),
+                {"Cookie": "AGW_CAS_SESSION=node-session"},
+            )
+
     def test_cas_session_rejects_header_injection(self):
         with mock.patch.dict(
             module.os.environ,
@@ -73,8 +84,8 @@ class Douyin3DTests(unittest.TestCase):
         }
         calls = []
 
-        def fake_post(path, payload, timeout=60):
-            calls.append((path, payload))
+        def fake_post(path, payload, timeout=60, cas_session=""):
+            calls.append((path, payload, cas_session))
             if path.endswith("generate"):
                 return {"asset_id": 42}
             return {"asset": asset}
@@ -84,7 +95,7 @@ class Douyin3DTests(unittest.TestCase):
                 mock.patch.object(module, "download_glb", return_value=Path(directory) / "42.glb"):
             result = module.Douyin3DGenerate().generate(
                 "Douyin3D", "推荐（随供应商）", "标准", "cup",
-                timeout_minutes=1, poll_seconds=2,
+                cas_session="node-session", timeout_minutes=1, poll_seconds=2,
             )
 
         self.assertEqual(result[:3], (str(Path(directory) / "42.glb"), "https://x/model.glb", 42))
@@ -93,6 +104,7 @@ class Douyin3DTests(unittest.TestCase):
             "/api/v1/assets/status",
             "/api/v1/assets/detail",
         ])
+        self.assertTrue(all(call[2] == "node-session" for call in calls))
         submit = calls[0][1]
         self.assertEqual(submit["vendor"], "douyin3d")
         self.assertEqual(submit["source_type"], "prompt")
@@ -108,7 +120,7 @@ class Douyin3DTests(unittest.TestCase):
     def test_comfy_image_upload_url_is_used_for_image_generation(self):
         calls = []
 
-        def fake_post(path, payload, timeout=60):
+        def fake_post(path, payload, timeout=60, cas_session=""):
             calls.append((path, payload))
             if path.endswith("generate"):
                 return {"data": {"asset_id": 77}}

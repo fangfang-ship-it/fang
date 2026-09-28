@@ -106,13 +106,16 @@ Load Image（加载图像） → Sky Bottom Stretch 2:1 → Save Image（保存�
 
 ### 安全配置
 
-凭证只从运行环境读取，不会写入节点参数或工作流 JSON。若要临时复用 `3d.bytedance.net` 的网站登录态并消耗该账号的网站积分，可在 ByteArtist/ComfyUI **运行环境**中注入：
+节点支持两种临时 CAS 配置方式：
+
+1. **节点输入（便于 BA 联调）**：在 `cas_session` 中粘贴 `AGW_CAS_SESSION` 的值；也兼容粘贴完整的 `AGW_CAS_SESSION=<value>`。该字段会随工作流保存，即使界面以密码样式遮挡，也不要发布、分享或导出含凭证的工作流。
+2. **运行环境（更安全）**：在 ByteArtist/ComfyUI 运行环境中注入：
 
 ```bash
 export DOUYIN3D_CAS_SESSION='<仅填写 AGW_CAS_SESSION 的值>'
 ```
 
-节点会在请求时生成 `Cookie: AGW_CAS_SESSION=<value>`。该环境变量优先于 API Key；不要填写完整的 `Cookie:` 请求头，也不要把它放入节点输入、工作流、截图、聊天记录或仓库。CAS 会话会过期，失效后需要在运行环境中更新并重启服务，因此此模式仅适合短期联调。
+节点会在请求时生成 `Cookie: AGW_CAS_SESSION=<value>`。节点内 `cas_session` 优先于环境变量，环境变量再优先于 API Key。不要填写完整的 `Cookie:` 请求头，也不要把真实值放入截图、聊天记录或仓库。CAS 会话会过期，失效后需要重新粘贴或更新环境变量。
 
 若已经取得服务端 Key，仍可使用更稳定的正式方式：
 
