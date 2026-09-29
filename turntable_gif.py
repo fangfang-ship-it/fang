@@ -188,7 +188,15 @@ class GLBTurntableGIF:
             raise TurntableRenderError("ComfyUI环境缺少NumPy或PyTorch。") from exc
         relative = target.relative_to(_output_root()).as_posix()
         return {
-            "ui": {"images": [{"filename": target.name, "subfolder": "douyin3d", "type": "output"}]},
+            "ui": {"gifs": [{
+                "filename": target.name,
+                "subfolder": "douyin3d",
+                "type": "output",
+                "format": "image/gif",
+                "frame_rate": int(fps),
+                "animated": True,
+                "fullpath": str(target),
+            }]},
             "result": (relative, batch),
         }
 
@@ -241,6 +249,14 @@ class FangSaveGIF:
         )
         relative = target.relative_to(_output_root()).as_posix()
         return {
-            "ui": {"images": [{"filename": target.name, "subfolder": "douyin3d", "type": "output"}]},
+            "ui": {"gifs": [{
+                "filename": target.name,
+                "subfolder": "douyin3d",
+                "type": "output",
+                "format": "image/gif",
+                "frame_rate": int(fps),
+                "animated": True,
+                "fullpath": str(target),
+            }]},
             "result": (relative,),
         }

@@ -82,7 +82,7 @@ ComfyUI/output/douyin3d/<filename_prefix>_turntable.gif
 Save GIF / 保存 GIF
 ```
 
-该节点可设置文件名前缀、FPS和循环播放，保存后同样会在画布中直接预览，文件位于 `ComfyUI/output/douyin3d/`。
+该节点可设置文件名前缀、FPS和循环播放，保存后同样会在画布中直接预览，文件位于 `ComfyUI/output/douyin3d/`。节点按 ComfyUI 动画输出规范返回 `ui.gifs`（包含 `image/gif`、帧率和完整路径），使 ByteArtist 批跑结果将其识别为GIF，而不是按 `Save Image` 的 `ui.images` 协议只采集第一帧PNG。
 
 ## 其他 3D 节点
 
