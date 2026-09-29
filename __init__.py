@@ -1,6 +1,6 @@
 """Fang ComfyUI custom nodes."""
 from .core import stretch_bottom_array
-from .douyin3d import Douyin3DDownloadAsset, Douyin3DDownloadGLB, Douyin3DGenerate
+from .douyin3d import Douyin3DDownloadGLB, Douyin3DGenerate, Douyin3DSaveModel
 from .gaussian_blur import SkyGaussianBlurFloat
 from .glb_viewer import FangGLBWebViewer, FangSaveGLB
 
@@ -46,7 +46,8 @@ NODE_CLASS_MAPPINGS = {
     "SkyBottomStretchTo2To1": SkyBottomStretchTo2To1,
     "SkyGaussianBlurFloat": SkyGaussianBlurFloat,
     "Douyin3DGenerate": Douyin3DGenerate,
-    "Douyin3DDownloadAsset": Douyin3DDownloadAsset,
+    "Douyin3DSaveModel": Douyin3DSaveModel,
+    "Douyin3DDownloadAsset": Douyin3DSaveModel,
     "Douyin3DDownloadGLB": Douyin3DDownloadGLB,
     "FangGLBWebViewer": FangGLBWebViewer,
     "FangSaveGLB": FangSaveGLB,
@@ -54,8 +55,9 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
     "SkyGaussianBlurFloat": "Sky Gaussian Blur Float / 高斯模糊（小数半径）",
-    "Douyin3DGenerate": "AI Studio 3D Generate & Download / 3D生成并下载",
-    "Douyin3DDownloadAsset": "Download 3D Asset / 下载3D资产",
+    "Douyin3DGenerate": "Douyin3D Image-to-3D / Douyin3D 图生模型",
+    "Douyin3DSaveModel": "Save Douyin3D Model / 保存 Douyin3D 模型",
+    "Douyin3DDownloadAsset": "Save Douyin3D Model / 保存 Douyin3D 模型（兼容）",
     "Douyin3DDownloadGLB": "Douyin3D Download Existing GLB / 下载已有3D模型",
     "FangGLBWebViewer": "Fang GLB Web Viewer / 浏览器3D预览",
     "FangSaveGLB": "Save GLB / 保存3D模型",
