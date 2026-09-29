@@ -1,0 +1,49 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "REPLACE_WITH_UPLOADED_SKY.png"
+    }
+  },
+  "2": {
+    "class_type": "SkyAutoDetectBand",
+    "inputs": {
+      "image": [
+        "1",
+        0
+      ],
+      "sensitivity": 1.0
+    }
+  },
+  "3": {
+    "class_type": "SkyAutoPlanLayout",
+    "inputs": {
+      "sky_data": [
+        "2",
+        0
+      ],
+      "layout_mode": "horizon_only",
+      "coordinate_space": "design_21_9"
+    }
+  },
+  "4": {
+    "class_type": "SkyAutoComposeGradient",
+    "inputs": {
+      "sky_data": [
+        "3",
+        0
+      ]
+    }
+  },
+  "5": {
+    "class_type": "SkyAutoValidateSave",
+    "inputs": {
+      "sky_data": [
+        "4",
+        0
+      ],
+      "filename_prefix": "sky_auto",
+      "save_debug": false
+    }
+  }
+}

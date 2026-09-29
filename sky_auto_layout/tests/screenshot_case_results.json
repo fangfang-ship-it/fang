@@ -1,0 +1,622 @@
+[
+  {
+    "sample": 1,
+    "mode": "strict_30_45",
+    "version": "0.1.0",
+    "status": "retry_required",
+    "layout_pass": false,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      466,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        466,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 59,
+      "band_px": [
+        37,
+        112
+      ],
+      "core_px": [
+        40,
+        109
+      ],
+      "band_percent": [
+        18.974358974358974,
+        57.43589743589744
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "BAND_DOES_NOT_FIT",
+    "message": "Complete band does not fit without distortion. Retry upstream; nothing is cropped.",
+    "layout": {
+      "mode": "strict_30_45",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 199.71428571428572,
+      "output_size": [
+        466,
+        233
+      ],
+      "allowed_px": [
+        60,
+        89
+      ],
+      "allowed_percent_of_final": [
+        25.751072961373392,
+        38.197424892703864
+      ],
+      "band_height_px": 75,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": false
+    },
+    "next_action": "upstream_retry_or_fallback"
+  },
+  {
+    "sample": 1,
+    "mode": "horizon_only",
+    "version": "0.1.0",
+    "status": "layout_pass",
+    "layout_pass": true,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      466,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        466,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 59,
+      "band_px": [
+        37,
+        112
+      ],
+      "core_px": [
+        40,
+        109
+      ],
+      "band_percent": [
+        18.974358974358974,
+        57.43589743589744
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "LAYOUT_PASS",
+    "message": "Layout passed. Cloud detection, blending appearance and spherical seam still need validation.",
+    "layout": {
+      "mode": "horizon_only",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 199.71428571428572,
+      "output_size": [
+        466,
+        233
+      ],
+      "allowed_px": [
+        6,
+        89
+      ],
+      "allowed_percent_of_final": [
+        2.575107296137339,
+        38.197424892703864
+      ],
+      "band_height_px": 75,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": false,
+      "destination_px": [
+        14,
+        89
+      ],
+      "translation_y_px": -23,
+      "destination_core_px": [
+        17,
+        86
+      ]
+    },
+    "checks": {
+      "ratio_2_1": true,
+      "retained_core_max_error": 0.0,
+      "top_uniformity_max_error": 0.0,
+      "bottom_uniformity_max_error": 0.0,
+      "outside_allowed_band_is_background": true,
+      "seam_mean_abs_difference_before": 0.12988236546516418,
+      "seam_mean_abs_difference_after": 0.12567740678787231,
+      "seam_validated": false,
+      "spherical_projection_validated": false,
+      "hdr_radiance": false
+    },
+    "next_action": "downstream_visual_and_seam_validation"
+  },
+  {
+    "sample": 2,
+    "mode": "strict_30_45",
+    "version": "0.1.0",
+    "status": "retry_required",
+    "layout_pass": false,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      469,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        469,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 60,
+      "band_px": [
+        53,
+        129
+      ],
+      "core_px": [
+        56,
+        126
+      ],
+      "band_percent": [
+        27.17948717948718,
+        66.15384615384616
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "BAND_DOES_NOT_FIT",
+    "message": "Complete band does not fit without distortion. Retry upstream; nothing is cropped.",
+    "layout": {
+      "mode": "strict_30_45",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 201.0,
+      "output_size": [
+        470,
+        235
+      ],
+      "allowed_px": [
+        61,
+        90
+      ],
+      "allowed_percent_of_final": [
+        25.95744680851064,
+        38.297872340425535
+      ],
+      "band_height_px": 76,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": true
+    },
+    "next_action": "upstream_retry_or_fallback"
+  },
+  {
+    "sample": 2,
+    "mode": "horizon_only",
+    "version": "0.1.0",
+    "status": "layout_pass",
+    "layout_pass": true,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      469,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        469,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 60,
+      "band_px": [
+        53,
+        129
+      ],
+      "core_px": [
+        56,
+        126
+      ],
+      "band_percent": [
+        27.17948717948718,
+        66.15384615384616
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "LAYOUT_PASS",
+    "message": "Layout passed. Cloud detection, blending appearance and spherical seam still need validation.",
+    "layout": {
+      "mode": "horizon_only",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 201.0,
+      "output_size": [
+        470,
+        235
+      ],
+      "allowed_px": [
+        7,
+        90
+      ],
+      "allowed_percent_of_final": [
+        2.978723404255319,
+        38.297872340425535
+      ],
+      "band_height_px": 76,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": true,
+      "destination_px": [
+        14,
+        90
+      ],
+      "translation_y_px": -39,
+      "destination_core_px": [
+        17,
+        87
+      ]
+    },
+    "checks": {
+      "ratio_2_1": true,
+      "retained_core_max_error": 0.0,
+      "top_uniformity_max_error": 0.0,
+      "bottom_uniformity_max_error": 0.0,
+      "outside_allowed_band_is_background": true,
+      "seam_mean_abs_difference_before": 0.07406261563301086,
+      "seam_mean_abs_difference_after": 0.03600791469216347,
+      "seam_validated": false,
+      "spherical_projection_validated": false,
+      "hdr_radiance": false
+    },
+    "next_action": "downstream_visual_and_seam_validation"
+  },
+  {
+    "sample": 3,
+    "mode": "strict_30_45",
+    "version": "0.1.0",
+    "status": "retry_required",
+    "layout_pass": false,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      469,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        469,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 66,
+      "band_px": [
+        42,
+        123
+      ],
+      "core_px": [
+        45,
+        120
+      ],
+      "band_percent": [
+        21.53846153846154,
+        63.07692307692308
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "BAND_DOES_NOT_FIT",
+    "message": "Complete band does not fit without distortion. Retry upstream; nothing is cropped.",
+    "layout": {
+      "mode": "strict_30_45",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 201.0,
+      "output_size": [
+        470,
+        235
+      ],
+      "allowed_px": [
+        61,
+        90
+      ],
+      "allowed_percent_of_final": [
+        25.95744680851064,
+        38.297872340425535
+      ],
+      "band_height_px": 81,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": true
+    },
+    "next_action": "upstream_retry_or_fallback"
+  },
+  {
+    "sample": 3,
+    "mode": "horizon_only",
+    "version": "0.1.0",
+    "status": "layout_pass",
+    "layout_pass": true,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      469,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        469,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 66,
+      "band_px": [
+        42,
+        123
+      ],
+      "core_px": [
+        45,
+        120
+      ],
+      "band_percent": [
+        21.53846153846154,
+        63.07692307692308
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "LAYOUT_PASS",
+    "message": "Layout passed. Cloud detection, blending appearance and spherical seam still need validation.",
+    "layout": {
+      "mode": "horizon_only",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 201.0,
+      "output_size": [
+        470,
+        235
+      ],
+      "allowed_px": [
+        7,
+        90
+      ],
+      "allowed_percent_of_final": [
+        2.978723404255319,
+        38.297872340425535
+      ],
+      "band_height_px": 81,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": true,
+      "destination_px": [
+        9,
+        90
+      ],
+      "translation_y_px": -33,
+      "destination_core_px": [
+        12,
+        87
+      ]
+    },
+    "checks": {
+      "ratio_2_1": true,
+      "retained_core_max_error": 0.0,
+      "top_uniformity_max_error": 0.0,
+      "bottom_uniformity_max_error": 0.0,
+      "outside_allowed_band_is_background": true,
+      "seam_mean_abs_difference_before": 0.051674336194992065,
+      "seam_mean_abs_difference_after": 0.025076579302549362,
+      "seam_validated": false,
+      "spherical_projection_validated": false,
+      "hdr_radiance": false
+    },
+    "next_action": "downstream_visual_and_seam_validation"
+  },
+  {
+    "sample": 4,
+    "mode": "strict_30_45",
+    "version": "0.1.0",
+    "status": "retry_required",
+    "layout_pass": false,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      466,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        466,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 63,
+      "band_px": [
+        63,
+        144
+      ],
+      "core_px": [
+        66,
+        141
+      ],
+      "band_percent": [
+        32.30769230769231,
+        73.84615384615384
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "BAND_DOES_NOT_FIT",
+    "message": "Complete band does not fit without distortion. Retry upstream; nothing is cropped.",
+    "layout": {
+      "mode": "strict_30_45",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 199.71428571428572,
+      "output_size": [
+        466,
+        233
+      ],
+      "allowed_px": [
+        60,
+        89
+      ],
+      "allowed_percent_of_final": [
+        25.751072961373392,
+        38.197424892703864
+      ],
+      "band_height_px": 81,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": false
+    },
+    "next_action": "upstream_retry_or_fallback"
+  },
+  {
+    "sample": 4,
+    "mode": "horizon_only",
+    "version": "0.1.0",
+    "status": "layout_pass",
+    "layout_pass": true,
+    "publishable": false,
+    "detector": "horizontal_deviation_v1",
+    "semantic_detection_verified": false,
+    "limitations": [
+      "Clouds over smooth sky only; faint or uniform features may be missed.",
+      "No automatic repair/verification of a 360-degree seam.",
+      "Output is SDR PNG, not radiometric HDR."
+    ],
+    "input_size": [
+      466,
+      195
+    ],
+    "detection": {
+      "analysis_size": [
+        466,
+        195
+      ],
+      "sensitivity": 1.0,
+      "strong_threshold": 0.034,
+      "weak_threshold": 0.016,
+      "strong_row_count": 63,
+      "band_px": [
+        63,
+        144
+      ],
+      "core_px": [
+        66,
+        141
+      ],
+      "band_percent": [
+        32.30769230769231,
+        73.84615384615384
+      ],
+      "note": "Automatic heuristic estimate, not a guarantee that every low-contrast wisp is detected."
+    },
+    "code": "LAYOUT_PASS",
+    "message": "Layout passed. Cloud detection, blending appearance and spherical seam still need validation.",
+    "layout": {
+      "mode": "horizon_only",
+      "coordinate_space": "design_21_9",
+      "reference_height_px": 199.71428571428572,
+      "output_size": [
+        466,
+        233
+      ],
+      "allowed_px": [
+        6,
+        89
+      ],
+      "allowed_percent_of_final": [
+        2.575107296137339,
+        38.197424892703864
+      ],
+      "band_height_px": 81,
+      "deformation": "none",
+      "horizontal_scale": 1.0,
+      "vertical_scale": 1.0,
+      "odd_width_extra_wrap_column": false,
+      "destination_px": [
+        8,
+        89
+      ],
+      "translation_y_px": -55,
+      "destination_core_px": [
+        11,
+        86
+      ]
+    },
+    "checks": {
+      "ratio_2_1": true,
+      "retained_core_max_error": 0.0,
+      "top_uniformity_max_error": 0.0,
+      "bottom_uniformity_max_error": 0.0,
+      "outside_allowed_band_is_background": true,
+      "seam_mean_abs_difference_before": 0.0303235724568367,
+      "seam_mean_abs_difference_after": 0.02946406602859497,
+      "seam_validated": false,
+      "spherical_projection_validated": false,
+      "hdr_radiance": false
+    },
+    "next_action": "downstream_visual_and_seam_validation"
+  }
+]

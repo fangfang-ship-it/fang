@@ -1,3 +1,35 @@
+# 天空自动排布 v0.1 · 自动测试链路
+
+本分支包含自动检测 → 保持云形排布 → 渐变合成 → 检查/保存。最终用户无需框选、填写内容范围或调整位移。沿用仓库原有拉伸与小数半径模糊节点，不调用新的生成模型。
+
+## 下载与分支
+
+- Git 仓库：`https://github.com/fangfang-ship-it/fang`
+- **本版本分支：`sky-auto-layout-v0.1`**
+- [直接下载本分支 ZIP](https://github.com/fangfang-ship-it/fang/archive/refs/heads/sky-auto-layout-v0.1.zip)
+- Byteartist 若支持按 Git 分支安装：下载类型选择 `branch`，仓库填上面地址，分支填写 `sky-auto-layout-v0.1`，下载后重新加载运行环境。
+- 标准 ComfyUI：将解压后的整个仓库放入 `custom_nodes/fang/`，或在 `custom_nodes` 中执行 `git clone --branch sky-auto-layout-v0.1 --single-branch https://github.com/fangfang-ship-it/fang.git fang`，再重启。
+- 已有 `fang` 时先备份原目录，更新原安装或切换分支；不要再平行安装一份相同节点，以免名称重复。不要只复制 `sky_auto_layout` 子文件夹后再同时保留整仓安装。
+
+## 导入工作流
+
+| 文件 | 用途 |
+|---|---|
+| [01_strict_band.json](sky_auto_layout/workflows/01_strict_band.json) | 严格30%—45%蓝区，完整云体放不下就返回失败，绝不暗中裁云或压扁 |
+| [02_horizon_only.json](sky_auto_layout/workflows/02_horizon_only.json) | 中线保底实验，明确允许云顶更高；适合先观察自动平移效果 |
+| [03_strict_band_api.json](sky_auto_layout/workflows/03_strict_band_api.json) | 后台 API 调用的严格版 |
+| [04_horizon_only_api.json](sky_auto_layout/workflows/04_horizon_only_api.json) | 后台 API 调用的中线保底版 |
+
+安装节点后将前两份之一拖入 ComfyUI，选择原始天空图片执行。后两份是 API 格式，不是画布格式。
+
+[完整使用说明](sky_auto_layout/README_先读我.md) · [验证与限制](sky_auto_layout/验证说明.md)
+
+**测试版限制：**自动检测是针对云群与平滑背景的图像算法，不是已验证的全天气语义识别。已完成11项独立工程测试；没有在真实 ComfyUI/Byteartist 环境运行验收。严格版可能返回放不下；失败只写 JSON，后端需接入有限次上游重试/兜底。本包不会自动重新生图。输出是 SDR PNG，未证明左右无缝或球面合格。
+
+---
+
+# 原有节点说明（以下 main 安装说明针对原有节点）
+
 # 小数半径高斯模糊 / Sky Gaussian Blur Float
 
 新增节点 `Sky Gaussian Blur Float / 高斯模糊（小数半径）`，分类 `Sky Tools`，内部类型 `SkyGaussianBlurFloat`。
@@ -86,4 +118,5 @@ Load Image（加载图像） → Sky Bottom Stretch 2:1 → Save Image（保存�
 参考官方接口：
 - https://docs.comfy.org/custom-nodes/walkthrough
 - https://docs.comfy.org/custom-nodes/backend/datatypes
+
 

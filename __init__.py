@@ -46,3 +46,12 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
     "SkyGaussianBlurFloat": "Sky Gaussian Blur Float / 高斯模糊（小数半径）",
 }
+
+# Sky auto layout v0.1; retain existing stretch and blur nodes.
+from .sky_auto_layout import (
+    NODE_CLASS_MAPPINGS as _SKY_AUTO_CLASSES,
+    NODE_DISPLAY_NAME_MAPPINGS as _SKY_AUTO_NAMES,
+)
+NODE_CLASS_MAPPINGS.update(_SKY_AUTO_CLASSES)
+NODE_DISPLAY_NAME_MAPPINGS.update(_SKY_AUTO_NAMES)
+

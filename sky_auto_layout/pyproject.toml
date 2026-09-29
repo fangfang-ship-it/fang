@@ -1,0 +1,7 @@
+[project]
+name = "comfyui-sky-auto-layout"
+version = "0.1.0"
+description = "Automatic conservative sky-band layout, gradient reconstruction and gated export."
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "Pillow>=9.1"]
+

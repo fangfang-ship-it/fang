@@ -1,0 +1,376 @@
+{
+  "last_node_id": 7,
+  "last_link_id": 6,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "title": "① 加载原始天空图片",
+      "pos": [
+        30,
+        150
+      ],
+      "size": [
+        290,
+        350
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "",
+        "image"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "SkyAutoDetectBand",
+      "title": "② 自动检测 · 无需框选",
+      "pos": [
+        380,
+        150
+      ],
+      "size": [
+        285,
+        165
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "sky_data",
+          "type": "SKY_AUTO_PACKET",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "debug_only",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SkyAutoDetectBand"
+      },
+      "widgets_values": [
+        1.0
+      ]
+    },
+    {
+      "id": 3,
+      "type": "SkyAutoPlanLayout",
+      "title": "③ 中线保底 · 放宽云顶",
+      "pos": [
+        730,
+        150
+      ],
+      "size": [
+        320,
+        170
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sky_data",
+          "type": "SKY_AUTO_PACKET",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "sky_data",
+          "type": "SKY_AUTO_PACKET",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SkyAutoPlanLayout"
+      },
+      "widgets_values": [
+        "horizon_only",
+        "design_21_9"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "SkyAutoComposeGradient",
+      "title": "④ 生成渐变并合成",
+      "pos": [
+        1110,
+        150
+      ],
+      "size": [
+        285,
+        165
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sky_data",
+          "type": "SKY_AUTO_PACKET",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "sky_data",
+          "type": "SKY_AUTO_PACKET",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "debug_only",
+          "type": "IMAGE",
+          "links": [
+            6
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "report",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SkyAutoComposeGradient"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 5,
+      "type": "SkyAutoValidateSave",
+      "title": "⑤ 检查 · 失败只写报告",
+      "pos": [
+        1470,
+        150
+      ],
+      "size": [
+        330,
+        280
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sky_data",
+          "type": "SKY_AUTO_PACKET",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "layout_pass",
+          "type": "BOOLEAN",
+          "links": null,
+          "slot_index": 0
+        },
+        {
+          "name": "report_json",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SkyAutoValidateSave"
+      },
+      "widgets_values": [
+        "sky_horizon",
+        false
+      ]
+    },
+    {
+      "id": 6,
+      "type": "PreviewImage",
+      "title": "开发端：检测预览（非成品）",
+      "pos": [
+        380,
+        420
+      ],
+      "size": [
+        480,
+        290
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 7,
+      "type": "PreviewImage",
+      "title": "开发端：布局预览（非成品）",
+      "pos": [
+        1040,
+        420
+      ],
+      "size": [
+        480,
+        290
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "SKY_AUTO_PACKET"
+    ],
+    [
+      3,
+      3,
+      0,
+      4,
+      0,
+      "SKY_AUTO_PACKET"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
+      0,
+      "SKY_AUTO_PACKET"
+    ],
+    [
+      5,
+      2,
+      1,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      4,
+      1,
+      7,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "title": "自动后处理：用户不填写范围；失败状态由后端处理",
+      "bounding": [
+        0,
+        80,
+        1830,
+        675
+      ],
+      "color": "#395466",
+      "font_size": 22,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.75,
+      "offset": [
+        30,
+        40
+      ]
+    },
+    "sky_auto_layout": {
+      "version": "0.1.0",
+      "mode": "horizon_only",
+      "prototype": true
+    }
+  },
+  "version": 0.4
+}
