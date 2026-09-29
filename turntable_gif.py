@@ -1,25 +1,149 @@
-"""Browser turntable GIF maker for GLB files saved in ComfyUI output."""
+"""Render a GLB as a real 360-degree turntable GIF inside ComfyUI."""
 from __future__ import annotations
 
-import html
-from urllib.parse import parse_qs, quote, urlencode
+import math
+import os
+from pathlib import Path
+from typing import Any
 
-from .glb_viewer import FangGLBViewerError, resolve_output_glb
+from .glb_viewer import resolve_output_glb
 
 
-def turntable_route(model_file: str, size: int, frames: int, fps: int,
-                    elevation: int, background: str, direction: str) -> str:
-    _, relative = resolve_output_glb(model_file)
-    query = urlencode({
-        "model": relative,
-        "size": max(128, min(1024, int(size))),
-        "frames": max(12, min(120, int(frames))),
-        "fps": max(1, min(30, int(fps))),
-        "elevation": max(0, min(90, int(elevation))),
-        "background": background,
-        "direction": direction,
-    })
-    return f"/fang/turntable-gif?{query}"
+class TurntableRenderError(RuntimeError):
+    pass
+
+
+def _output_root() -> Path:
+    try:
+        import folder_paths
+        return Path(folder_paths.get_output_directory()).resolve()
+    except ImportError:
+        return (Path.cwd() / "output").resolve()
+
+
+def _background_rgba(name: str) -> tuple[int, int, int, int]:
+    return {
+        "透明": (0, 0, 0, 0),
+        "白色": (255, 255, 255, 255),
+        "黑色": (0, 0, 0, 255),
+        "灰色": (128, 128, 128, 255),
+    }[name]
+
+
+def _look_at(camera: Any, target: Any, np: Any) -> Any:
+    forward = target - camera
+    forward /= np.linalg.norm(forward)
+    right = np.cross(forward, np.array([0.0, 0.0, 1.0]))
+    if np.linalg.norm(right) < 1e-6:
+        right = np.array([1.0, 0.0, 0.0])
+    right /= np.linalg.norm(right)
+    up = np.cross(right, forward)
+    pose = np.eye(4)
+    pose[:3, 0] = right
+    pose[:3, 1] = up
+    pose[:3, 2] = -forward
+    pose[:3, 3] = camera
+    return pose
+
+
+def render_turntable_gif(model_file: str, size: int, frames: int, fps: int,
+                         elevation: int, background: str, direction: str,
+                         filename_prefix: str) -> tuple[Path, list[Any]]:
+    os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
+    try:
+        import numpy as np
+        # pyrender 0.1.45 still references the NumPy 1.x alias removed in NumPy 2.
+        if not hasattr(np, "infty"):
+            np.infty = np.inf
+        import pyrender
+        import trimesh
+        from PIL import Image
+    except ImportError as exc:
+        raise TurntableRenderError(
+            "缺少360 GIF渲染依赖，请重新安装插件并重启房间，使 requirements.txt 生效。"
+        ) from exc
+
+    source, _ = resolve_output_glb(model_file)
+    try:
+        loaded = trimesh.load(source, force="scene", process=False)
+        if isinstance(loaded, trimesh.Trimesh):
+            loaded = trimesh.Scene(loaded)
+        bounds = loaded.bounds
+        if bounds is None:
+            raise ValueError("模型没有有效几何体")
+        center = bounds.mean(axis=0)
+        extent = float(np.max(bounds[1] - bounds[0]))
+        if not np.isfinite(extent) or extent <= 0:
+            raise ValueError("模型尺寸无效")
+
+        scene = pyrender.Scene(
+            bg_color=np.array(_background_rgba(background), dtype=np.float32) / 255.0,
+            ambient_light=np.array([0.45, 0.45, 0.45, 1.0]),
+        )
+        for node_name in loaded.graph.nodes_geometry:
+            transform, geometry_name = loaded.graph.get(node_name)
+            geometry = loaded.geometry[geometry_name]
+            scene.add(pyrender.Mesh.from_trimesh(geometry, smooth=False), pose=transform)
+
+        yfov = math.radians(35.0)
+        camera = pyrender.PerspectiveCamera(yfov=yfov, znear=max(extent / 10000, 0.001), zfar=extent * 100)
+        distance = extent / (2 * math.tan(yfov / 2)) * 1.35
+        camera_node = scene.add(camera, pose=np.eye(4))
+        key = pyrender.DirectionalLight(color=np.ones(3), intensity=3.2)
+        fill = pyrender.DirectionalLight(color=np.ones(3), intensity=1.8)
+        key_node = scene.add(key, pose=np.eye(4))
+        fill_node = scene.add(fill, pose=np.eye(4))
+        renderer = pyrender.OffscreenRenderer(viewport_width=size, viewport_height=size)
+
+        images: list[Image.Image] = []
+        elevation_radians = math.radians(elevation)
+        sign = -1 if direction == "顺时针" else 1
+        flags = pyrender.RenderFlags.RGBA | pyrender.RenderFlags.SHADOWS_DIRECTIONAL
+        try:
+            for index in range(frames):
+                angle = sign * 2 * math.pi * index / frames
+                horizontal = distance * math.sin(elevation_radians)
+                position = center + np.array([
+                    horizontal * math.cos(angle),
+                    horizontal * math.sin(angle),
+                    distance * math.cos(elevation_radians),
+                ])
+                pose = _look_at(position, center, np)
+                scene.set_pose(camera_node, pose)
+                scene.set_pose(key_node, pose)
+                opposite = center + (center - position)
+                scene.set_pose(fill_node, _look_at(opposite, center, np))
+                color, _ = renderer.render(scene, flags=flags)
+                image = Image.fromarray(color, mode="RGBA")
+                if background != "透明":
+                    canvas = Image.new("RGBA", image.size, _background_rgba(background))
+                    canvas.alpha_composite(image)
+                    image = canvas.convert("RGB")
+                images.append(image)
+        finally:
+            renderer.delete()
+    except TurntableRenderError:
+        raise
+    except Exception as exc:
+        raise TurntableRenderError(f"GLB旋转GIF渲染失败：{exc}") from exc
+
+    prefix = Path(filename_prefix.strip()).name or source.stem
+    prefix = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in prefix).strip("_") or "turntable"
+    output_dir = _output_root() / "douyin3d"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    target = output_dir / f"{prefix}_turntable.gif"
+    duration = max(1, round(1000 / fps))
+    images[0].save(
+        target,
+        save_all=True,
+        append_images=images[1:],
+        duration=duration,
+        loop=0,
+        disposal=2,
+        optimize=False,
+        transparency=0 if background == "透明" else None,
+    )
+    return target, images
 
 
 class GLBTurntableGIF:
@@ -30,100 +154,38 @@ class GLBTurntableGIF:
             "size": ([256, 384, 512, 768], {"default": 512}),
             "frames": ("INT", {"default": 36, "min": 12, "max": 120, "step": 1}),
             "fps": ("INT", {"default": 12, "min": 1, "max": 30, "step": 1}),
-            "camera_elevation": ("INT", {"default": 75, "min": 0, "max": 90, "step": 1}),
+            "camera_elevation": ("INT", {"default": 75, "min": 5, "max": 85, "step": 1}),
             "background": (["透明", "白色", "黑色", "灰色"], {"default": "透明"}),
             "direction": (["顺时针", "逆时针"], {"default": "顺时针"}),
+            "filename_prefix": ("STRING", {"default": "douyin3d"}),
         }}
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("gif_maker_url", "model_path")
-    FUNCTION = "make"
+    RETURN_TYPES = ("STRING", "IMAGE")
+    RETURN_NAMES = ("gif_path", "frames")
+    FUNCTION = "render"
     CATEGORY = "Fang/3D"
     OUTPUT_NODE = True
-    DESCRIPTION = "在浏览器中把 GLB 渲染为360°旋转 GIF；不会重新生成3D模型。"
+    DESCRIPTION = "直接渲染并保存360°旋转GIF，输出GIF路径和帧序列。"
 
-    def make(self, model_path: str, size: int, frames: int, fps: int,
-             camera_elevation: int, background: str, direction: str):
-        route = turntable_route(model_path, size, frames, fps, camera_elevation,
-                                background, direction)
-        _, relative = resolve_output_glb(model_path)
-        return {"ui": {"gif_maker_url": [route]}, "result": (route, relative)}
-
-
-def _maker_html(params: dict[str, str]) -> str:
-    relative = params["model"]
-    size = int(params["size"])
-    frames = int(params["frames"])
-    fps = int(params["fps"])
-    elevation = int(params["elevation"])
-    background = params["background"]
-    direction = params["direction"]
-    model_url = f"/fang/glb-file?model={quote(relative, safe='')}"
-    title = html.escape(relative.rsplit("/", 1)[-1])
-    color = {"透明": "transparent", "白色": "#ffffff", "黑色": "#000000", "灰色": "#808080"}.get(background, "transparent")
-    transparent = "true" if background == "透明" else "false"
-    sign = -1 if direction == "顺时针" else 1
-    return f"""<!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{title} · 360 GIF</title>
-<script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-<style>
-*{{box-sizing:border-box}} body{{margin:0;background:#111318;color:#f5f7ff;font-family:Inter,-apple-system,sans-serif;display:grid;place-items:center;min-height:100vh}}
-.card{{width:min(92vw,760px);padding:20px;border:1px solid #ffffff20;border-radius:16px;background:#1b1e25;box-shadow:0 18px 60px #0008}}
-model-viewer{{display:block;width:min(80vw,{size}px);height:min(80vw,{size}px);margin:auto;background:{color};border-radius:12px}}
-.row{{display:flex;align-items:center;gap:12px;margin-top:16px}} button{{padding:10px 16px;border:0;border-radius:9px;background:#5577ff;color:white;font-weight:600;cursor:pointer}} button:disabled{{opacity:.45}} progress{{flex:1}} .meta{{font-size:13px;color:#aeb4c2;margin:8px 0 14px}}
-</style></head><body><div class="card"><strong>{title}</strong><div class="meta">{frames}帧 · {fps} FPS · {size}×{size} · {html.escape(background)} · {html.escape(direction)}</div>
-<model-viewer id="viewer" src="{html.escape(model_url, quote=True)}" camera-controls interaction-prompt="none" shadow-intensity="1" exposure="1" environment-image="neutral" camera-orbit="0deg {elevation}deg auto"></model-viewer>
-<div class="row"><button id="make" disabled>生成并下载 GIF</button><progress id="progress" value="0" max="{frames}"></progress><span id="status">加载模型…</span></div></div>
-<script type="module">
-import {{ GIFEncoder, quantize, applyPalette }} from 'https://esm.sh/gifenc@1.0.3';
-const viewer=document.getElementById('viewer'), button=document.getElementById('make'), progress=document.getElementById('progress'), status=document.getElementById('status');
-viewer.addEventListener('load',()=>{{button.disabled=false;status.textContent='准备就绪';}});
-viewer.addEventListener('error',()=>{{status.textContent='GLB 加载失败';}});
-const waitFrame=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-button.onclick=async()=>{{
- button.disabled=true; const gif=GIFEncoder(); const delay=Math.round(1000/{fps});
- try{{
-  for(let i=0;i<{frames};i++){{
-   viewer.cameraOrbit=`${{{sign}*i*360/{frames}}}deg {elevation}deg auto`; await waitFrame();
-   const blob=await viewer.toBlob({{idealAspect:true}}); const bitmap=await createImageBitmap(blob);
-   const canvas=document.createElement('canvas'); canvas.width={size}; canvas.height={size}; const ctx=canvas.getContext('2d',{{willReadFrequently:true}});
-   {'ctx.clearRect(0,0,canvas.width,canvas.height);' if transparent == 'true' else f"ctx.fillStyle='{color}';ctx.fillRect(0,0,canvas.width,canvas.height);"}
-   ctx.drawImage(bitmap,0,0,{size},{size}); bitmap.close(); const rgba=ctx.getImageData(0,0,{size},{size}).data;
-   const palette=quantize(rgba,256); const index=applyPalette(rgba,palette);
-   gif.writeFrame(index,{size},{size},{{palette,delay,repeat:0}}); progress.value=i+1; status.textContent=`${{i+1}}/{frames}`;
-  }}
-  gif.finish(); const output=new Blob([gif.bytesView()],{{type:'image/gif'}}); const url=URL.createObjectURL(output); const a=document.createElement('a');
-  a.href=url;a.download='{html.escape(title.rsplit('.',1)[0])}_turntable.gif';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);status.textContent='GIF 已下载';
- }}catch(error){{console.error(error);status.textContent='生成失败：'+(error?.message||error);}} finally{{button.disabled=false;}}
-}};
-</script></body></html>"""
-
-
-def register_routes() -> bool:
-    try:
-        from aiohttp import web
-        from server import PromptServer
-    except ImportError:
-        return False
-
-    @PromptServer.instance.routes.get("/fang/turntable-gif")
-    async def turntable_gif(request):
+    def render(self, model_path: str, size: int, frames: int, fps: int,
+               camera_elevation: int, background: str, direction: str,
+               filename_prefix: str):
+        target, images = render_turntable_gif(
+            model_path, int(size), int(frames), int(fps), int(camera_elevation),
+            background, direction, filename_prefix,
+        )
         try:
-            params = {
-                "model": request.query.get("model", ""),
-                "size": str(max(128, min(1024, int(request.query.get("size", 512))))),
-                "frames": str(max(12, min(120, int(request.query.get("frames", 36))))),
-                "fps": str(max(1, min(30, int(request.query.get("fps", 12))))),
-                "elevation": str(max(0, min(90, int(request.query.get("elevation", 75))))),
-                "background": request.query.get("background", "透明"),
-                "direction": request.query.get("direction", "顺时针"),
-            }
-            resolve_output_glb(params["model"])
-        except (FangGLBViewerError, ValueError) as exc:
-            raise web.HTTPBadRequest(text=str(exc)) from exc
-        return web.Response(text=_maker_html(params), content_type="text/html", charset="utf-8")
-    return True
-
-
-register_routes()
+            import numpy as np
+            import torch
+            tensors = []
+            for image in images:
+                rgb = np.asarray(image.convert("RGB"), dtype=np.float32) / 255.0
+                tensors.append(torch.from_numpy(rgb))
+            batch = torch.stack(tensors)
+        except ImportError as exc:
+            raise TurntableRenderError("ComfyUI环境缺少NumPy或PyTorch。") from exc
+        relative = target.relative_to(_output_root()).as_posix()
+        return {
+            "ui": {"images": [{"filename": target.name, "subfolder": "douyin3d", "type": "output"}]},
+            "result": (relative, batch),
+        }

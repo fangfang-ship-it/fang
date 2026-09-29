@@ -44,11 +44,11 @@
       "mode": 0,
       "inputs": [{"name": "model_path", "type": "STRING", "link": 2}],
       "outputs": [
-        {"name": "gif_maker_url", "type": "STRING", "links": null, "slot_index": 0},
-        {"name": "model_path", "type": "STRING", "links": null, "slot_index": 1}
+        {"name": "gif_path", "type": "STRING", "links": null, "slot_index": 0},
+        {"name": "frames", "type": "IMAGE", "links": null, "slot_index": 1}
       ],
       "properties": {"Node name for S&R": "GLBTurntableGIF"},
-      "widgets_values": [512, 36, 12, 75, "透明", "顺时针"]
+      "widgets_values": [512, 36, 12, 75, "透明", "顺时针", "douyin3d"]
     }
   ],
   "links": [

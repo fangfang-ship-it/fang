@@ -66,7 +66,13 @@ Cookie 输入会随 ComfyUI 工作流保存。请勿上传、分享或提交填�
 - 可调相机俯视角、透明/白/黑/灰背景、旋转方向
 - 只读取已生成的GLB，不会重新调用图生3D或消耗积分
 
-运行后会打开浏览器制作页，点击 **“生成并下载 GIF”**。页面使用GLB原始材质渲染完整一圈，并在浏览器本地编码和下载GIF，不需要安装Blender。
+运行节点后会直接在 ComfyUI 后端渲染并保存真正的 GIF，不再打开网页。GIF 会作为节点预览直接显示在画布里，同时输出 `gif_path` 和全部渲染帧 `IMAGE`，文件保存在：
+
+```text
+ComfyUI/output/douyin3d/<filename_prefix>_turntable.gif
+```
+
+首次安装会通过 `requirements.txt` 安装 `trimesh` 与 `pyrender`，因此更新插件后必须重启房间。
 
 ## 其他 3D 节点
 

@@ -34,32 +34,6 @@ app.registerExtension({
       return;
     }
 
-    if (nodeData.name === "GLBTurntableGIF") {
-      const originalCreated = nodeType.prototype.onNodeCreated;
-      nodeType.prototype.onNodeCreated = function (...args) {
-        originalCreated?.apply(this, args);
-        this.fangGifMakerUrl = "";
-        this.addWidget("button", "生成并下载360° GIF", null, () => {
-          if (!this.fangGifMakerUrl) {
-            toast("warn", "请先运行节点", "校验 GLB 后才能生成 GIF。");
-            return;
-          }
-          window.open(new URL(this.fangGifMakerUrl, window.location.origin).href, "_blank", "noopener,noreferrer");
-        });
-      };
-      const originalExecuted = nodeType.prototype.onExecuted;
-      nodeType.prototype.onExecuted = function (message, ...args) {
-        originalExecuted?.apply(this, [message, ...args]);
-        const value = message?.gif_maker_url;
-        this.fangGifMakerUrl = Array.isArray(value) ? value[0] : value || "";
-        this.setDirtyCanvas?.(true, true);
-        if (this.fangGifMakerUrl) {
-          window.open(new URL(this.fangGifMakerUrl, window.location.origin).href, "_blank", "noopener,noreferrer");
-        }
-      };
-      return;
-    }
-
     if (!["Douyin3DGenerate", "Douyin3DSaveModel", "Douyin3DDownloadAsset"].includes(nodeData.name)) return;
 
     const originalCreated = nodeType.prototype.onNodeCreated;
