@@ -220,6 +220,14 @@ class Douyin3DTests(unittest.TestCase):
         with self.assertRaisesRegex(module.Douyin3DError, "HTTP or HTTPS"):
             module.Douyin3DDownloadGLB().download("file:///tmp/model.glb", 42)
 
+    def test_generate_prompt_widget_is_compact_and_prompt_input_is_connectable(self):
+        inputs = module.Douyin3DGenerate.INPUT_TYPES()
+        prompt_options = inputs["required"]["prompt"][1]
+        prompt_input_options = inputs["optional"]["prompt_input"][1]
+        self.assertFalse(prompt_options["multiline"])
+        self.assertEqual(prompt_options["default"], "")
+        self.assertTrue(prompt_input_options["forceInput"])
+
 
 if __name__ == "__main__":
     unittest.main()

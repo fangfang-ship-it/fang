@@ -142,7 +142,7 @@ export DOUYIN3D_AUTH_SCHEME=''
 4. 成功后读取 `glb_path`、`glb_url`、`asset_id`；GLB 文件保存在 ComfyUI 输出目录。
 5. 在原生 `Load 3D` / `Preview 3D` 中选择该 GLB，即可用鼠标旋转、缩放和平移查看。
 
-图生 3D 可将 BA/ComfyUI 文生图节点的 `IMAGE` 直接连接到 `image`；PE/文本节点的输出可连接到 `prompt_input`，其内容会优先于节点内手填的 `prompt`。节点会将批次中的第一张图编码为 PNG，通过 AI Studio `POST /api/v1/files/upload` 上传，再把返回的 URL 传给生成接口；也保留 `image_url` 作为调试入口。Poly3D 当前仅开放文字生成，连接图片时会明确报错。
+图生 3D 可将 BA/ComfyUI 文生图节点的 `IMAGE` 直接连接到 `image`；PE/文本节点的输出可连接到 `prompt_input`，其内容会优先于节点内手填的 `prompt`。`prompt` 仅保留为紧凑的单行兜底输入，不再占用大块画布空间。节点会将批次中的第一张图编码为 PNG，通过 AI Studio `POST /api/v1/files/upload` 上传，再把返回的 URL 传给生成接口；也保留 `image_url` 作为调试入口。Poly3D 当前仅开放文字生成，连接图片时会明确报错。
 
 ### 当前接口
 
@@ -168,3 +168,14 @@ export DOUYIN3D_AUTH_SCHEME=''
 4. 独立 Viewer 页面支持左键旋转、滚轮缩放、右键/双指平移、自动旋转、视角复位、背景切换、全屏与 GLB 下载。
 
 Viewer 只允许读取 ComfyUI `output` 下的 GLB，拒绝目录穿越和任意服务器文件访问。页面通过同源接口读取模型，避免把服务器绝对路径直接暴露给浏览器。当前 Viewer 使用 `@google/model-viewer` 的公开 ES Module；若工作环境拦截外部 CDN，页面会显示加载错误，此时需将该前端依赖内置到插件中。
+
+## Save GLB / 保存3D模型
+
+`Save GLB / 保存3D模型` 用于将生成结果整理为稳定的最终文件：
+
+1. 将 `AI Studio 3D Generate & Download` 的 `glb_path` 连接到 `model_file`。
+2. 在 `filename_prefix` 填写文件名前缀；节点会保存到 `ComfyUI/output/saved_glb/`。
+3. 若同名文件已存在，会自动追加 `_00001`、`_00002`，不会覆盖旧结果。
+4. 输出 `saved_glb_path` 可继续连接到 3D 预览或其他处理节点。
+
+节点只允许复制 `ComfyUI/output` 内的 `.glb` 文件，并会丢弃文件名前缀中的目录部分，防止路径穿越。

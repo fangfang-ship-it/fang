@@ -375,7 +375,11 @@ class Douyin3DGenerate:
                 "supplier": (list(_SUPPLIER_IDS), {"default": "Douyin3D"}),
                 "model_profile": (_MODEL_PROFILES, {"default": "推荐（随供应商）"}),
                 "quality_preset": (["快速预览", "标准", "高质量", "超高质量", "自定义"], {"default": "标准"}),
-                "prompt": ("STRING", {"default": "一个白色陶瓷马克杯，完整单体，纯色背景，无文字", "multiline": True}),
+                "prompt": ("STRING", {
+                    "default": "",
+                    "multiline": False,
+                    "tooltip": "可选兜底提示词；连接 prompt_input 后优先使用连线内容。",
+                }),
                 "cas_session": ("STRING", {
                     "default": "", "password": True,
                     "tooltip": "AGW_CAS_SESSION 的值；会随工作流保存，请勿分享或发布。",

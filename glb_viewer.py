@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import html
 from pathlib import Path
+import re
+import shutil
 from urllib.parse import quote
 
 
@@ -40,6 +42,61 @@ def resolve_output_glb(model_file: str) -> tuple[Path, str]:
 def viewer_route(model_file: str) -> str:
     _, relative = resolve_output_glb(model_file)
     return f"/fang/glb-viewer?model={quote(relative, safe='')}"
+
+
+def _safe_filename_prefix(filename_prefix: str) -> str:
+    """Return a portable filename while discarding any supplied directory."""
+    raw = Path((filename_prefix or "model").replace("\\", "/")).name
+    safe = re.sub(r"[^\w.-]+", "_", raw, flags=re.UNICODE).strip("._")
+    return (safe or "model")[:120]
+
+
+def _next_glb_path(folder: Path, filename_prefix: str) -> Path:
+    prefix = _safe_filename_prefix(filename_prefix)
+    candidate = folder / f"{prefix}.glb"
+    if not candidate.exists():
+        return candidate
+    index = 1
+    while True:
+        candidate = folder / f"{prefix}_{index:05d}.glb"
+        if not candidate.exists():
+            return candidate
+        index += 1
+
+
+class FangSaveGLB:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "model_file": ("STRING", {
+                    "forceInput": True,
+                    "tooltip": "连接 AI Studio 3D 节点的 glb_path。",
+                }),
+                "filename_prefix": ("STRING", {
+                    "default": "Fang3D",
+                    "multiline": False,
+                    "tooltip": "保存到 output/saved_glb 下的文件名前缀。",
+                }),
+            },
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("saved_glb_path",)
+    FUNCTION = "save_glb"
+    CATEGORY = "Fang/3D"
+    OUTPUT_NODE = True
+    DESCRIPTION = "复制生成的 GLB 到 output/saved_glb，并自动避免覆盖同名文件。"
+
+    def save_glb(self, model_file: str, filename_prefix: str = "Fang3D"):
+        source, _ = resolve_output_glb(model_file)
+        root = _output_root()
+        target_folder = root / "saved_glb"
+        target_folder.mkdir(parents=True, exist_ok=True)
+        target = _next_glb_path(target_folder, filename_prefix)
+        shutil.copy2(source, target)
+        relative = target.relative_to(root).as_posix()
+        return {"ui": {"saved_glb_path": [relative]}, "result": (relative,)}
 
 
 class FangGLBWebViewer:

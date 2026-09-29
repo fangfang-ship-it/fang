@@ -66,6 +66,36 @@ class FangGLBViewerTests(unittest.TestCase):
         self.assertIn("复位视角", page)
         self.assertIn("/fang/glb-file?model=douyin3d%2Fmodel.glb", page)
 
+    def test_save_glb_copies_to_saved_folder_and_avoids_overwrite(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "douyin3d" / "model.glb"
+            source.parent.mkdir()
+            source.write_bytes(b"glTF-model")
+            with mock.patch.object(module, "_output_root", return_value=root):
+                first = module.FangSaveGLB().save_glb(
+                    "douyin3d/model.glb", "my character"
+                )
+                second = module.FangSaveGLB().save_glb(
+                    "douyin3d/model.glb", "my character"
+                )
+        self.assertEqual(first["result"], ("saved_glb/my_character.glb",))
+        self.assertEqual(second["result"], ("saved_glb/my_character_00001.glb",))
+
+    def test_save_glb_discards_directory_from_filename_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source.glb"
+            source.write_bytes(b"glTF")
+            with mock.patch.object(module, "_output_root", return_value=root):
+                result = module.FangSaveGLB().save_glb(
+                    "source.glb", "../../outside/model"
+                )
+                saved = root / result["result"][0]
+                self.assertTrue(saved.is_file())
+                self.assertEqual(saved.parent, root / "saved_glb")
+        self.assertEqual(result["result"], ("saved_glb/model.glb",))
+
 
 if __name__ == "__main__":
     unittest.main()
