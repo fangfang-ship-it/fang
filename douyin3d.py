@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import os
 import re
@@ -27,6 +28,7 @@ _MODEL_PROFILES = [
     "Rodin Gen-2.5", "Seed3D 2.0", "Tripo v3.1", "Tripo v3.0", "Tripo v2.5",
     "Tripo P1", "Tripo P2 Preview",
 ]
+_GENERATION_CACHE: dict[str, tuple[dict[str, Any], int, str]] = {}
 
 
 class Douyin3DError(RuntimeError):
@@ -264,6 +266,17 @@ def _vendor_params(supplier: str, model_profile: str, **values) -> tuple[str, di
     raise Douyin3DError(f"不支持的供应商：{supplier}")
 
 
+def _generation_key(image: Any, values: tuple[Any, ...]) -> str:
+    """Create a stable key so downstream format changes never regenerate the model."""
+    try:
+        array = image.detach().to(device="cpu").numpy()
+        image_digest = hashlib.sha256(array.tobytes()).hexdigest()
+    except Exception:
+        image_digest = str(id(image))
+    encoded = json.dumps([image_digest, *values], ensure_ascii=False, default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def _wait_for_asset(asset_id: int, project_id: int, cookies: str,
                     timeout_minutes: int, poll_seconds: int) -> dict[str, Any]:
     deadline = time.monotonic() + max(1, int(timeout_minutes)) * 60
@@ -351,6 +364,8 @@ class Douyin3DGenerate:
             "quad_remesh": ("BOOLEAN", {"default": False}),
             "geometry_seed": ("INT", {"default": 0, "min": 0, "max": 65535}),
             "texture_seed": ("INT", {"default": 0, "min": 0, "max": 65535}),
+            "force_regenerate": ("BOOLEAN", {"default": False,
+                "tooltip": "关闭时复用同图同参数的上次资产；需要重新生成时开启。"}),
             "timeout_minutes": ("INT", {"default": 30, "min": 1, "max": 90}),
             "poll_seconds": ("INT", {"default": 10, "min": 2, "max": 60}),
         }}
@@ -365,8 +380,15 @@ class Douyin3DGenerate:
                  supplier: str, model_profile: str, geometry_quality: str, texture_quality: str,
                  texture_size: int, faces: int, generate_texture: bool, enable_pbr: bool,
                  delight_strength: str, split_model: bool, quad_remesh: bool,
-                 geometry_seed: int, texture_seed: int, timeout_minutes: int,
-                 poll_seconds: int):
+                 geometry_seed: int, texture_seed: int, force_regenerate: bool,
+                 timeout_minutes: int, poll_seconds: int):
+        cache_key = _generation_key(image, (
+            project_id, asset_name, supplier, model_profile, geometry_quality,
+            texture_quality, texture_size, faces, generate_texture, enable_pbr,
+            delight_strength, split_model, quad_remesh, geometry_seed, texture_seed,
+        ))
+        if not force_regenerate and cache_key in _GENERATION_CACHE:
+            return _GENERATION_CACHE[cache_key]
         project_id = _resolve_project_id(project_id, cookies)
         image_url = _upload_image(image, cookies)
         vendor, vendor_fields = _vendor_params(
@@ -393,7 +415,9 @@ class Douyin3DGenerate:
         asset = _extract_asset(detail) or asset
         bundle = {"asset_id": asset_id, "project_id": project_id, "cookies": cookies, "asset": asset}
         public_status = {"asset_id": asset_id, "project_id": project_id, "asset": asset}
-        return bundle, asset_id, json.dumps(public_status, ensure_ascii=False)
+        result = bundle, asset_id, json.dumps(public_status, ensure_ascii=False)
+        _GENERATION_CACHE[cache_key] = result
+        return result
 
 
 class Douyin3DSaveModel:

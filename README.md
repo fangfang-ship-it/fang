@@ -30,7 +30,7 @@ git clone https://github.com/fangfang-ship-it/fang.git
 - 拆分子模型、四边面重拓扑
 - 独立的几何种子与贴图种子
 
-参数会直接映射到网页使用的 `douyin3d_params`，不再经过会覆盖手动值的质量预设。
+参数会直接映射到网页使用的供应商参数，不再经过会覆盖手动值的质量预设。生成节点会在当前 ComfyUI 进程内缓存“同一图片＋同一组生成参数”的资产；仅修改保存节点的 GLB/FBX/OBJ 格式时会直接复用原资产并转换，不会重新生成、也不会再次扣除生成积分。如确实需要对同一图片和参数重新生成，请开启 `force_regenerate`。
 
 `project_id` 填 `0` 时会通过 `/api/v1/projects/list` 自动选择第一个可用项目；如需指定项目，请填写对应 ID。
 

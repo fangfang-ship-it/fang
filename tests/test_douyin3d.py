@@ -98,7 +98,7 @@ class Douyin3DTests(unittest.TestCase):
                 mock.patch.object(module, "_wait_for_asset", return_value=asset):
             bundle, asset_id, status = module.Douyin3DGenerate().generate(
                 object(), "a=1", 9, "测试模型", "Douyin3D", "Douyin V3.1-fast", "高", "中",
-                2048, 654321, True, True, "强", False, True, 12, 34, 30, 10,
+                2048, 654321, True, True, "强", False, True, 12, 34, False, 30, 10,
             )
         submit = calls[0][1]
         self.assertEqual(submit["project_id"], 9)
@@ -111,6 +111,26 @@ class Douyin3DTests(unittest.TestCase):
         self.assertEqual(asset_id, 42)
         self.assertEqual(bundle["cookies"], "a=1")
         self.assertNotIn("cookies", json.loads(status))
+
+    def test_generation_cache_reuses_asset_for_downstream_format_changes(self):
+        cached = ({"asset_id": 42}, 42, "{}")
+        image = object()
+        key = module._generation_key(image, (
+            9, "name", "Douyin3D", "推荐（随供应商）", "高", "高",
+            2048, 500000, True, True, "弱", False, False, 0, 0,
+        ))
+        module._GENERATION_CACHE[key] = cached
+        try:
+            with mock.patch.object(module, "_request") as request:
+                result = module.Douyin3DGenerate().generate(
+                    image, "a=1", 9, "name", "Douyin3D", "推荐（随供应商）",
+                    "高", "高", 2048, 500000, True, True, "弱", False,
+                    False, 0, 0, False, 30, 10,
+                )
+            self.assertEqual(result, cached)
+            request.assert_not_called()
+        finally:
+            module._GENERATION_CACHE.pop(key, None)
 
     def test_save_existing_glb_downloads_file(self):
         current = {"asset_id": 7, "artifacts": [

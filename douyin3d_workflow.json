@@ -35,7 +35,7 @@
         {"name": "status_json", "type": "STRING", "links": null, "slot_index": 2}
       ],
       "properties": {"Node name for S&R": "Douyin3DGenerate"},
-      "widgets_values": ["", 0, "ComfyUI image-to-3D", "Douyin3D", "推荐（随供应商）", "高", "高", 2048, 500000, true, true, "弱", false, false, 0, 0, 30, 10]
+      "widgets_values": ["", 0, "ComfyUI image-to-3D", "Douyin3D", "推荐（随供应商）", "高", "高", 2048, 500000, true, true, "弱", false, false, 0, 0, false, 30, 10]
     },
     {
       "id": 3,
