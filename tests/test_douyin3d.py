@@ -92,12 +92,15 @@ class Douyin3DTests(unittest.TestCase):
                 return {"asset_id": 42}
             return {"asset": asset}
 
-        with mock.patch.object(module, "_resolve_project_id", return_value=9), \
+        with tempfile.TemporaryDirectory() as directory, \
+                mock.patch.object(module, "_resolve_project_id", return_value=9), \
                 mock.patch.object(module, "_upload_image", return_value="https://x/i.png"), \
                 mock.patch.object(module, "_request", side_effect=fake_request), \
-                mock.patch.object(module, "_wait_for_asset", return_value=asset):
-            bundle, asset_id, status = module.Douyin3DGenerate().generate(
-                object(), "a=1", 9, "测试模型", "Douyin3D", "Douyin V3.1-fast", "高", "中",
+                mock.patch.object(module, "_wait_for_asset", return_value=asset), \
+                mock.patch.object(module, "_output_directory", return_value=Path(directory)), \
+                mock.patch.object(module, "_download", side_effect=lambda url, target, **kwargs: target):
+            result = module.Douyin3DGenerate().generate(
+                object(), "a=1", "测试模型", "Douyin3D", "Douyin V3.1-fast", "高", "中",
                 2048, 654321, True, True, "强", False, True, 12, 34, False, 30, 10,
             )
         submit = calls[0][1]
@@ -108,22 +111,25 @@ class Douyin3DTests(unittest.TestCase):
         self.assertEqual(submit["description"], "测试模型")
         self.assertEqual(submit["douyin3d_params"]["faces_num"], 654321)
         self.assertEqual(submit["douyin3d_params"]["gene_quality_tex"], 1)
-        self.assertEqual(asset_id, 42)
-        self.assertEqual(bundle["cookies"], "a=1")
-        self.assertNotIn("cookies", json.loads(status))
+        self.assertEqual(result["result"], ("douyin3d/测试模型_42.glb", "https://x/m.glb"))
+        self.assertEqual(
+            result["ui"]["local_download_url"],
+            ["/fang/download-model?model=douyin3d%2F%E6%B5%8B%E8%AF%95%E6%A8%A1%E5%9E%8B_42.glb"],
+        )
 
     def test_generation_cache_reuses_asset_for_downstream_format_changes(self):
-        cached = ({"asset_id": 42}, 42, "{}")
+        cached = {"ui": {"download_glb_url": ["https://x/m.glb"]},
+                  "result": ("douyin3d/name_42.glb", "https://x/m.glb")}
         image = object()
         key = module._generation_key(image, (
-            9, "name", "Douyin3D", "推荐（随供应商）", "高", "高",
+            "name", "Douyin3D", "推荐（随供应商）", "高", "高",
             2048, 500000, True, True, "弱", False, False, 0, 0,
         ))
         module._GENERATION_CACHE[key] = cached
         try:
             with mock.patch.object(module, "_request") as request:
                 result = module.Douyin3DGenerate().generate(
-                    image, "a=1", 9, "name", "Douyin3D", "推荐（随供应商）",
+                    image, "a=1", "name", "Douyin3D", "推荐（随供应商）",
                     "高", "高", 2048, 500000, True, True, "弱", False,
                     False, 0, 0, False, 30, 10,
                 )

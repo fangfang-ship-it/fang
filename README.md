@@ -15,7 +15,9 @@ git clone https://github.com/fangfang-ship-it/fang.git
 
 推荐直接导入 [`douyin3d_workflow.json`](douyin3d_workflow.json)。示例画布已经连接：
 
-`Load Image → Douyin3D Image-to-3D → Save Douyin3D Model`
+`Load Image → Douyin3D Image-to-3D`
+
+生成与 GLB 保存已经合并为一个节点。节点会自动选择第一个可用 AI Studio 项目，不再显示 `project_id`；也不再输出 `asset_id` 和 `status_json`。
 
 ### 生成节点
 
@@ -30,9 +32,13 @@ git clone https://github.com/fangfang-ship-it/fang.git
 - 拆分子模型、四边面重拓扑
 - 独立的几何种子与贴图种子
 
-参数会直接映射到网页使用的供应商参数，不再经过会覆盖手动值的质量预设。生成节点会在当前 ComfyUI 进程内缓存“同一图片＋同一组生成参数”的资产；仅修改保存节点的 GLB/FBX/OBJ 格式时会直接复用原资产并转换，不会重新生成、也不会再次扣除生成积分。如确实需要对同一图片和参数重新生成，请开启 `force_regenerate`。
+参数会直接映射到网页使用的供应商参数，不再经过会覆盖手动值的质量预设。项目 ID 会通过 `/api/v1/projects/list` 自动获取。生成成功后，节点会自动下载 GLB 到：
 
-`project_id` 填 `0` 时会通过 `/api/v1/projects/list` 自动选择第一个可用项目；如需指定项目，请填写对应 ID。
+```text
+ComfyUI/output/douyin3d/<asset_name>_<asset_id>.glb
+```
+
+节点直接输出 `saved_glb_path` 和 `download_glb_url`，并显示明显的 **“下载到本机 / Download”** 按钮。点击后浏览器直接下载最终 GLB。如果需要对同一图片和参数重新生成，请开启 `force_regenerate`。
 
 ### Cookie 鉴权
 
@@ -49,22 +55,6 @@ export DOUYIN3D_COOKIES='<完整 Cookie 字符串>'
 ```
 
 Cookie 输入会随 ComfyUI 工作流保存。请勿上传、分享或提交填写过真实 Cookie 的工作流；仓库示例中的该字段始终为空。
-
-### 保存节点
-
-`Douyin3DSaveModel` 接收生成节点的 `DOUYIN3D_ASSET` 输出，可选择：
-
-- GLB
-- FBX
-- OBJ
-
-如果所选格式尚不存在，节点会调用 AI Studio 转换接口并轮询完成状态，然后下载到：
-
-```text
-ComfyUI/output/douyin3d/<filename_prefix>_<asset_id>.<format>
-```
-
-节点同时输出保存路径、下载 URL 和资产 ID。模型保存成功后，节点会出现明显的 **“下载到本机 / Download”** 按钮；点击后浏览器直接下载服务器 `output/douyin3d` 中的最终文件，无需进入文件管理器。
 
 ## 其他 3D 节点
 

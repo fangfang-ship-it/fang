@@ -1,6 +1,6 @@
 {
-  "last_node_id": 3,
-  "last_link_id": 2,
+  "last_node_id": 2,
+  "last_link_id": 1,
   "nodes": [
     {
       "id": 1,
@@ -22,45 +22,20 @@
       "id": 2,
       "type": "Douyin3DGenerate",
       "pos": [390, 80],
-      "size": [390, 690],
+      "size": [410, 760],
       "flags": {},
       "order": 1,
       "mode": 0,
-      "inputs": [
-        {"name": "image", "type": "IMAGE", "link": 1}
-      ],
+      "inputs": [{"name": "image", "type": "IMAGE", "link": 1}],
       "outputs": [
-        {"name": "asset", "type": "DOUYIN3D_ASSET", "links": [2], "slot_index": 0},
-        {"name": "asset_id", "type": "INT", "links": null, "slot_index": 1},
-        {"name": "status_json", "type": "STRING", "links": null, "slot_index": 2}
+        {"name": "saved_glb_path", "type": "STRING", "links": null, "slot_index": 0},
+        {"name": "download_glb_url", "type": "STRING", "links": null, "slot_index": 1}
       ],
       "properties": {"Node name for S&R": "Douyin3DGenerate"},
-      "widgets_values": ["", 0, "ComfyUI image-to-3D", "Douyin3D", "推荐（随供应商）", "高", "高", 2048, 500000, true, true, "弱", false, false, 0, 0, false, 30, 10]
-    },
-    {
-      "id": 3,
-      "type": "Douyin3DSaveModel",
-      "pos": [840, 230],
-      "size": [330, 230],
-      "flags": {},
-      "order": 2,
-      "mode": 0,
-      "inputs": [
-        {"name": "asset", "type": "DOUYIN3D_ASSET", "link": 2}
-      ],
-      "outputs": [
-        {"name": "saved_path", "type": "STRING", "links": null, "slot_index": 0},
-        {"name": "download_url", "type": "STRING", "links": null, "slot_index": 1},
-        {"name": "asset_id", "type": "INT", "links": null, "slot_index": 2}
-      ],
-      "properties": {"Node name for S&R": "Douyin3DSaveModel"},
-      "widgets_values": ["GLB", "douyin3d", 10, 3]
+      "widgets_values": ["", "ComfyUI image-to-3D", "Douyin3D", "推荐（随供应商）", "高", "高", 2048, 500000, true, true, "弱", false, false, 0, 0, false, 30, 10]
     }
   ],
-  "links": [
-    [1, 1, 0, 2, 0, "IMAGE"],
-    [2, 2, 0, 3, 0, "DOUYIN3D_ASSET"]
-  ],
+  "links": [[1, 1, 0, 2, 0, "IMAGE"]],
   "groups": [],
   "config": {},
   "extra": {},

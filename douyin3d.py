@@ -349,7 +349,6 @@ class Douyin3DGenerate:
             "image": ("IMAGE",),
             "cookies": ("STRING", {"default": "", "multiline": True, "password": True,
                 "tooltip": "粘贴 3d.bytedance.net 的完整 Cookie；不要分享含 Cookie 的工作流。"}),
-            "project_id": ("INT", {"default": 0, "min": 0, "tooltip": "0=自动选择第一个可用项目"}),
             "asset_name": ("STRING", {"default": "ComfyUI image-to-3D"}),
             "supplier": (list(_SUPPLIERS), {"default": "Douyin3D"}),
             "model_profile": (_MODEL_PROFILES, {"default": "推荐（随供应商）"}),
@@ -370,26 +369,27 @@ class Douyin3DGenerate:
             "poll_seconds": ("INT", {"default": 10, "min": 2, "max": 60}),
         }}
 
-    RETURN_TYPES = ("DOUYIN3D_ASSET", "INT", "STRING")
-    RETURN_NAMES = ("asset", "asset_id", "status_json")
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("saved_glb_path", "download_glb_url")
     FUNCTION = "generate"
     CATEGORY = "Fang/3D"
-    DESCRIPTION = "使用 AI Studio 将输入图片生成 3D；供应商与质量参数会映射到当前网页接口。"
+    OUTPUT_NODE = True
+    DESCRIPTION = "使用 AI Studio 将输入图片生成 3D，并直接保存 GLB、提供本机下载按钮。"
 
-    def generate(self, image: Any, cookies: str, project_id: int, asset_name: str,
+    def generate(self, image: Any, cookies: str, asset_name: str,
                  supplier: str, model_profile: str, geometry_quality: str, texture_quality: str,
                  texture_size: int, faces: int, generate_texture: bool, enable_pbr: bool,
                  delight_strength: str, split_model: bool, quad_remesh: bool,
                  geometry_seed: int, texture_seed: int, force_regenerate: bool,
                  timeout_minutes: int, poll_seconds: int):
         cache_key = _generation_key(image, (
-            project_id, asset_name, supplier, model_profile, geometry_quality,
+            asset_name, supplier, model_profile, geometry_quality,
             texture_quality, texture_size, faces, generate_texture, enable_pbr,
             delight_strength, split_model, quad_remesh, geometry_seed, texture_seed,
         ))
         if not force_regenerate and cache_key in _GENERATION_CACHE:
             return _GENERATION_CACHE[cache_key]
-        project_id = _resolve_project_id(project_id, cookies)
+        project_id = _resolve_project_id(0, cookies)
         image_url = _upload_image(image, cookies)
         vendor, vendor_fields = _vendor_params(
             supplier, model_profile,
@@ -413,9 +413,21 @@ class Douyin3DGenerate:
         asset = _wait_for_asset(asset_id, project_id, cookies, timeout_minutes, poll_seconds)
         detail = _request("/api/v1/assets/detail", {"asset_id": asset_id}, cookies=cookies)
         asset = _extract_asset(detail) or asset
-        bundle = {"asset_id": asset_id, "project_id": project_id, "cookies": cookies, "asset": asset}
-        public_status = {"asset_id": asset_id, "project_id": project_id, "asset": asset}
-        result = bundle, asset_id, json.dumps(public_status, ensure_ascii=False)
+        glb_url = _artifact_url(asset, "glb")
+        if not glb_url:
+            raise Douyin3DError(f"资产 {asset_id} 已完成，但没有可下载的 GLB。")
+        output = _output_directory() / f"{_safe_prefix(asset_name)}_{asset_id}.glb"
+        _download(glb_url, output, cookies=cookies)
+        relative = f"douyin3d/{output.name}"
+        local_download_url = f"/fang/download-model?model={quote(relative, safe='')}"
+        result = {
+            "ui": {
+                "saved_glb_path": [relative],
+                "download_glb_url": [glb_url],
+                "local_download_url": [local_download_url],
+            },
+            "result": (relative, glb_url),
+        }
         _GENERATION_CACHE[cache_key] = result
         return result
 

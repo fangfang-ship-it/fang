@@ -34,7 +34,7 @@ app.registerExtension({
       return;
     }
 
-    if (!["Douyin3DSaveModel", "Douyin3DDownloadAsset"].includes(nodeData.name)) return;
+    if (!["Douyin3DGenerate", "Douyin3DSaveModel", "Douyin3DDownloadAsset"].includes(nodeData.name)) return;
 
     const originalCreated = nodeType.prototype.onNodeCreated;
     nodeType.prototype.onNodeCreated = function (...args) {
