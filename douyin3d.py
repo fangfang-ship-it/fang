@@ -59,6 +59,7 @@ def _post(
     payload: dict[str, Any],
     timeout: float = 60,
     cas_session: str = "",
+    allowed_codes: tuple[int | str, ...] = (),
 ) -> dict[str, Any]:
     payload = dict(payload)
     if any(word in path for word in ("generate", "upload", "create", "update")):
@@ -84,7 +85,8 @@ def _post(
     except json.JSONDecodeError as exc:
         raise Douyin3DError(f"Invalid JSON from {path}: {body[:500]}") from exc
     base_resp = data.get("base_resp") or {}
-    if base_resp.get("code", 0) not in (0, "0", None):
+    code = base_resp.get("code", 0)
+    if code not in (0, "0", None, *allowed_codes):
         raise Douyin3DError(base_resp.get("message") or f"API error: {base_resp}")
     return data
 
@@ -122,10 +124,13 @@ def _upload_comfy_image(image: Any, cas_session: str = "") -> str:
     from io import BytesIO
     buffer = BytesIO()
     Image.fromarray(pixels, mode=mode).save(buffer, format="PNG")
+    file_name = f"byteartist_{int(time.time() * 1000)}.png"
     payload = {
         "file_data": base64.b64encode(buffer.getvalue()).decode("ascii"),
-        "file_name": f"byteartist_{int(time.time() * 1000)}.png",
-        "custom_path": "byteartist/douyin3d",
+        "file_name": file_name,
+        # AI Studio treats custom_path as the final object key, not a folder.
+        # A stable key makes image-to-3D vendors reuse a cached previous image.
+        "custom_path": f"byteartist/douyin3d/{file_name}",
     }
     return _uploaded_url(_post(
         "/api/v1/files/upload", payload, timeout=120, cas_session=cas_session
@@ -159,20 +164,30 @@ def _asset_id(data: dict[str, Any]) -> int:
     return int(value)
 
 
-def _artifact_url(asset: dict[str, Any]) -> str:
-    for artifact in asset.get("artifacts") or []:
-        if artifact.get("primary") and artifact.get("url"):
-            return artifact["url"]
-    for artifact in asset.get("artifacts") or []:
-        if artifact.get("url"):
-            return artifact["url"]
+def _artifact_url(asset: dict[str, Any], target_format: str = "") -> str:
+    artifacts = asset.get("artifacts") or []
+    wanted = target_format.strip().lower()
+    if wanted:
+        for artifact in artifacts:
+            if str(artifact.get("format", "")).lower() == wanted and artifact.get("url"):
+                if str(artifact.get("status", "success")).lower() == "success":
+                    return artifact["url"]
+        if wanted != "glb":
+            return ""
+    else:
+        for artifact in artifacts:
+            if artifact.get("primary") and artifact.get("url"):
+                return artifact["url"]
+        for artifact in artifacts:
+            if artifact.get("url"):
+                return artifact["url"]
     info = asset.get("info")
     if isinstance(info, str):
         try:
             info = json.loads(info)
         except json.JSONDecodeError:
             info = {}
-    if isinstance(info, dict):
+    if isinstance(info, dict) and (not wanted or wanted == "glb"):
         return info.get("modelUrl") or info.get("model_url") or ""
     return ""
 
@@ -297,7 +312,7 @@ def _build_vendor_fields(
     custom_quality = {"low": 0, "middle": 1, "high": 2, "ultra": 3}
     geo_level = custom_quality[geometry_quality] if quality_preset == "自定义" else level
     tex_level = custom_quality[texture_quality] if quality_preset == "自定义" else level
-    faces = max(10_000, min(1_000_000, int(faces)))
+    faces = max(100, min(1_000_000, int(faces)))
     seed = max(0, min(65_535, int(seed)))
     model = _vendor_model(vendor, model_profile)
 
@@ -367,6 +382,80 @@ def _build_vendor_fields(
     raise Douyin3DError(f"Unsupported AI Studio vendor: {vendor}")
 
 
+class Douyin3DDownloadAsset:
+    """Return a downloadable GLB/FBX/OBJ URL, converting the asset when needed."""
+
+    _FORMATS = {"GLB": 1, "FBX": 2, "OBJ": 3}
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {
+            "required": {
+                "asset_id": ("INT", {"default": 1, "min": 1, "forceInput": True}),
+                "format": (list(cls._FORMATS), {"default": "GLB"}),
+                "cas_session": ("STRING", {
+                    "default": "", "password": True,
+                    "tooltip": "与生成节点相同的 AGW_CAS_SESSION；会随工作流保存。",
+                }),
+                "timeout_minutes": ("INT", {"default": 10, "min": 1, "max": 30}),
+                "poll_seconds": ("INT", {"default": 3, "min": 1, "max": 10}),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING", "INT", "STRING")
+    RETURN_NAMES = ("download_url", "format", "asset_id", "status_json")
+    FUNCTION = "get_download"
+    CATEGORY = "Fang/3D"
+    OUTPUT_NODE = True
+    DESCRIPTION = "获取 GLB/FBX/OBJ 下载链接；需要时调用 AI Studio 官方转换接口。"
+
+    def get_download(
+        self,
+        asset_id: int,
+        format: str,
+        cas_session: str = "",
+        timeout_minutes: int = 10,
+        poll_seconds: int = 3,
+    ):
+        target = format.strip().upper()
+        if target not in self._FORMATS:
+            raise Douyin3DError(f"Unsupported download format: {format}")
+        asset_id = int(asset_id)
+        detail = _post(
+            "/api/v1/assets/detail", {"asset_id": asset_id}, cas_session=cas_session
+        )
+        asset = _extract_asset(detail) or {}
+        url = _artifact_url(asset, target.lower())
+        if not url:
+            conversion = _post(
+                "/api/v1/assets/convert",
+                {
+                    "asset_id": asset_id,
+                    "target_format": self._FORMATS[target],
+                    "content_type": 0,
+                },
+                cas_session=cas_session,
+                allowed_codes=(10005, "10005"),
+            )
+            accepted = conversion.get("accepted")
+            code = (conversion.get("base_resp") or {}).get("code", 0)
+            if accepted is False and code not in (10005, "10005"):
+                raise Douyin3DError(f"AI Studio rejected {target} conversion.")
+            deadline = time.monotonic() + max(1, int(timeout_minutes)) * 60
+            while time.monotonic() < deadline:
+                detail = _post(
+                    "/api/v1/assets/detail", {"asset_id": asset_id}, cas_session=cas_session
+                )
+                asset = _extract_asset(detail) or asset
+                url = _artifact_url(asset, target.lower())
+                if url:
+                    break
+                time.sleep(max(1, int(poll_seconds)))
+            else:
+                raise Douyin3DError(f"Timed out converting asset {asset_id} to {target}.")
+        return url, target.lower(), asset_id, json.dumps(asset, ensure_ascii=False)
+
+
 class Douyin3DGenerate:
     @classmethod
     def INPUT_TYPES(cls):
@@ -386,7 +475,10 @@ class Douyin3DGenerate:
                 }),
                 "geometry_quality": (["low", "middle", "high", "ultra"], {"default": "high"}),
                 "texture_quality": (["low", "middle", "high", "ultra"], {"default": "high"}),
-                "faces": ("INT", {"default": 300000, "min": 10000, "max": 1000000, "step": 10000}),
+                "faces": ("INT", {
+                    "default": 300000, "min": 100, "max": 1000000, "step": 100,
+                    "tooltip": "面数上限；Tripo v3.1 官方支持从 100 起，5000 会原样传递。",
+                }),
                 "texture_size": ([1024, 2048, 4096], {"default": 2048}),
                 "enable_pbr": ("BOOLEAN", {"default": True}),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 65535}),

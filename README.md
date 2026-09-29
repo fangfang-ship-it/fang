@@ -142,7 +142,11 @@ export DOUYIN3D_AUTH_SCHEME=''
 4. 成功后读取 `glb_path`、`glb_url`、`asset_id`；GLB 文件保存在 ComfyUI 输出目录。
 5. 在原生 `Load 3D` / `Preview 3D` 中选择该 GLB，即可用鼠标旋转、缩放和平移查看。
 
-图生 3D 可将 BA/ComfyUI 文生图节点的 `IMAGE` 直接连接到 `image`；PE/文本节点的输出可连接到 `prompt_input`，其内容会优先于节点内手填的 `prompt`。`prompt` 仅保留为紧凑的单行兜底输入，不再占用大块画布空间。节点会将批次中的第一张图编码为 PNG，通过 AI Studio `POST /api/v1/files/upload` 上传，再把返回的 URL 传给生成接口；也保留 `image_url` 作为调试入口。Poly3D 当前仅开放文字生成，连接图片时会明确报错。
+图生 3D 可将 BA/ComfyUI 文生图节点的 `IMAGE` 直接连接到 `image`；PE/文本节点的输出可连接到 `prompt_input`，其内容会优先于节点内手填的 `prompt`。`prompt` 仅保留为紧凑的单行兜底输入，不再占用大块画布空间。节点会将批次中的第一张图编码为 PNG，通过 AI Studio `POST /api/v1/files/upload` 上传，并为每次上传生成唯一对象路径，避免供应商按固定 URL 缓存旧图；再把返回的 URL 传给生成接口。也保留 `image_url` 作为调试入口。Poly3D 当前仅开放文字生成，连接图片时会明确报错。`faces` 最低支持 100，输入 5000 会原样传给供应商，不再被抬高到 10000。
+
+### 下载 3D 资产
+
+`Download 3D Asset / 下载3D资产` 接收生成节点的 `asset_id`，可选择 `GLB`、`FBX` 或 `OBJ`。如果目标格式已存在，节点直接返回下载 URL；否则调用 AI Studio 官方 `POST /api/v1/assets/convert` 转换接口并轮询资产详情，最终通过 `download_url` 输出可点击链接。
 
 ### 当前接口
 

@@ -79,6 +79,8 @@ class Douyin3DTests(unittest.TestCase):
         payload = mocked_post.call_args.args[1]
         self.assertIn("file_data", payload)
         self.assertNotIn("base64", payload)
+        self.assertEqual(payload["custom_path"], f"byteartist/douyin3d/{payload['file_name']}")
+        self.assertTrue(payload["custom_path"].endswith(".png"))
         self.assertEqual(mocked_post.call_args.kwargs["cas_session"], "node-session")
 
     def test_extract_nested_asset_and_url(self):
@@ -227,6 +229,52 @@ class Douyin3DTests(unittest.TestCase):
         self.assertFalse(prompt_options["multiline"])
         self.assertEqual(prompt_options["default"], "")
         self.assertTrue(prompt_input_options["forceInput"])
+
+    def test_faces_below_old_10000_floor_are_preserved(self):
+        payload, _ = module._build_vendor_fields(
+            "tripo3d", "Tripo v3.1", "标准", "middle", "middle",
+            5000, 2048, True, 0, "不选风格",
+        )
+        self.assertEqual(payload["tripo_params"]["face_limit"], 5000)
+        self.assertEqual(module.Douyin3DGenerate.INPUT_TYPES()["required"]["faces"][1]["min"], 100)
+
+    def test_download_asset_returns_existing_glb(self):
+        asset = {
+            "asset_id": 7,
+            "artifacts": [
+                {"format": "glb", "status": "success", "url": "https://x/model.glb"}
+            ],
+        }
+        with mock.patch.object(module, "_post", return_value={"asset": asset}) as mocked_post:
+            result = module.Douyin3DDownloadAsset().get_download(7, "GLB", "session")
+        self.assertEqual(result[:3], ("https://x/model.glb", "glb", 7))
+        mocked_post.assert_called_once()
+
+    def test_download_asset_converts_fbx_and_polls_detail(self):
+        glb_asset = {
+            "asset_id": 7,
+            "artifacts": [
+                {"format": "glb", "status": "success", "url": "https://x/model.glb"}
+            ],
+        }
+        fbx_asset = {
+            "asset_id": 7,
+            "artifacts": [
+                {"format": "fbx", "status": "success", "url": "https://x/model.fbx"}
+            ],
+        }
+        responses = [
+            {"asset": glb_asset},
+            {"base_resp": {"code": 0}, "accepted": True},
+            {"asset": fbx_asset},
+        ]
+        with mock.patch.object(module, "_post", side_effect=responses) as mocked_post:
+            result = module.Douyin3DDownloadAsset().get_download(7, "FBX", "session")
+        self.assertEqual(result[:3], ("https://x/model.fbx", "fbx", 7))
+        convert_call = mocked_post.call_args_list[1]
+        self.assertEqual(convert_call.args[0], "/api/v1/assets/convert")
+        self.assertEqual(convert_call.args[1]["target_format"], 2)
+        self.assertEqual(convert_call.args[1]["content_type"], 0)
 
 
 if __name__ == "__main__":
