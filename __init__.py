@@ -3,6 +3,7 @@ from .core import stretch_bottom_array
 from .douyin3d import Douyin3DDownloadGLB, Douyin3DGenerate
 from .gaussian_blur import SkyGaussianBlurFloat
 from .glb_viewer import FangGLBWebViewer, FangSaveGLB
+from .turntable_gif import GLBTurntableGIF
 
 WEB_DIRECTORY = "./web"
 
@@ -49,6 +50,7 @@ NODE_CLASS_MAPPINGS = {
     "Douyin3DDownloadGLB": Douyin3DDownloadGLB,
     "FangGLBWebViewer": FangGLBWebViewer,
     "FangSaveGLB": FangSaveGLB,
+    "GLBTurntableGIF": GLBTurntableGIF,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
@@ -57,4 +59,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "Douyin3DDownloadGLB": "Douyin3D Download Existing GLB / 下载已有3D模型",
     "FangGLBWebViewer": "Fang GLB Web Viewer / 浏览器3D预览",
     "FangSaveGLB": "Save GLB / 保存3D模型",
+    "GLBTurntableGIF": "GLB Turntable GIF / 模型360°旋转 GIF",
 }
