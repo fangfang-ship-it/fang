@@ -20,23 +20,31 @@ def _output_root() -> Path:
         return (Path.cwd() / "output").resolve()
 
 
-def resolve_output_glb(model_file: str) -> tuple[Path, str]:
-    """Resolve a GLB while preventing traversal outside ComfyUI/output."""
+def resolve_output_model(model_file: str) -> tuple[Path, str]:
+    """Resolve a downloadable model while preventing traversal outside output."""
     raw = (model_file or "").strip()
     if not raw:
-        raise FangGLBViewerError("model_file is required.")
+        raise FangGLBViewerError("model is required.")
     root = _output_root()
     candidate = Path(raw)
     resolved = candidate.resolve() if candidate.is_absolute() else (root / candidate).resolve()
     try:
         relative = resolved.relative_to(root)
     except ValueError as exc:
-        raise FangGLBViewerError("model_file must be inside the ComfyUI output directory.") from exc
+        raise FangGLBViewerError("model must be inside the ComfyUI output directory.") from exc
+    if resolved.suffix.lower() not in {".glb", ".fbx", ".obj"}:
+        raise FangGLBViewerError("Only .glb, .fbx and .obj model files can be downloaded.")
+    if not resolved.is_file():
+        raise FangGLBViewerError(f"Model file does not exist: {relative.as_posix()}")
+    return resolved, relative.as_posix()
+
+
+def resolve_output_glb(model_file: str) -> tuple[Path, str]:
+    """Resolve a GLB while preventing traversal outside ComfyUI/output."""
+    resolved, relative = resolve_output_model(model_file)
     if resolved.suffix.lower() != ".glb":
         raise FangGLBViewerError("Only .glb files are supported by this viewer.")
-    if not resolved.is_file():
-        raise FangGLBViewerError(f"GLB file does not exist: {relative.as_posix()}")
-    return resolved, relative.as_posix()
+    return resolved, relative
 
 
 def viewer_route(model_file: str) -> str:
@@ -199,6 +207,23 @@ def register_routes() -> bool:
         return web.FileResponse(path, headers={
             "Content-Type": "model/gltf-binary",
             "Content-Disposition": f'inline; filename="{path.name}"',
+            "Cache-Control": "no-store",
+        })
+
+    @routes.get("/fang/download-model")
+    async def download_model(request):
+        try:
+            path, _ = resolve_output_model(request.query.get("model", ""))
+        except FangGLBViewerError as exc:
+            raise web.HTTPBadRequest(text=str(exc)) from exc
+        content_types = {
+            ".glb": "model/gltf-binary",
+            ".fbx": "application/octet-stream",
+            ".obj": "text/plain",
+        }
+        return web.FileResponse(path, headers={
+            "Content-Type": content_types[path.suffix.lower()],
+            "Content-Disposition": f'attachment; filename="{path.name}"',
             "Cache-Control": "no-store",
         })
 

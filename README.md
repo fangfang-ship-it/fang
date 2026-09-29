@@ -64,7 +64,7 @@ Cookie 输入会随 ComfyUI 工作流保存。请勿上传、分享或提交填�
 ComfyUI/output/douyin3d/<filename_prefix>_<asset_id>.<format>
 ```
 
-节点同时输出保存路径、下载 URL 和资产 ID。
+节点同时输出保存路径、下载 URL 和资产 ID。模型保存成功后，节点会出现明显的 **“下载到本机 / Download”** 按钮；点击后浏览器直接下载服务器 `output/douyin3d` 中的最终文件，无需进入文件管理器。
 
 ## 其他 3D 节点
 

@@ -122,7 +122,11 @@ class Douyin3DTests(unittest.TestCase):
                 mock.patch.object(module, "_output_directory", return_value=Path(directory)), \
                 mock.patch.object(module, "_download", side_effect=lambda url, target, **kwargs: target) as download:
             result = module.Douyin3DSaveModel().save(bundle, "GLB", "my model", 10, 3)
-        self.assertEqual(result, ("douyin3d/my_model_7.glb", "https://x/model.glb", 7))
+        self.assertEqual(result["result"], ("douyin3d/my_model_7.glb", "https://x/model.glb", 7))
+        self.assertEqual(
+            result["ui"]["local_download_url"],
+            ["/fang/download-model?model=douyin3d%2Fmy_model_7.glb"],
+        )
         request.assert_called_once()
         self.assertEqual(download.call_args.args[1].name, "my_model_7.glb")
 
@@ -140,7 +144,7 @@ class Douyin3DTests(unittest.TestCase):
                 mock.patch.object(module, "_output_directory", return_value=Path(directory)), \
                 mock.patch.object(module, "_download", side_effect=lambda url, target, **kwargs: target):
             result = module.Douyin3DSaveModel().save(bundle, "OBJ", "result", 1, 1)
-        self.assertEqual(result[0], "douyin3d/result_7.obj")
+        self.assertEqual(result["result"][0], "douyin3d/result_7.obj")
         self.assertEqual(request.call_args_list[1].args[0], "/api/v1/assets/convert")
         self.assertEqual(request.call_args_list[1].args[1]["target_format"], 3)
 

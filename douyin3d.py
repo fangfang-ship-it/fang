@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 _API_BASE = "https://3d.bytedance.net"
@@ -441,7 +442,11 @@ class Douyin3DSaveModel:
         output = _output_directory() / f"{prefix}_{asset_id}.{target_format.lower()}"
         _download(url, output, cookies=cookies)
         relative = f"douyin3d/{output.name}"
-        return relative, url, asset_id
+        local_download_url = f"/fang/download-model?model={quote(relative, safe='')}"
+        return {
+            "ui": {"local_download_url": [local_download_url], "saved_path": [relative]},
+            "result": (relative, url, asset_id),
+        }
 
 
 # Legacy aliases retained so old workflows at least load; new workflows should use the two nodes above.
