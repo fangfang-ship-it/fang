@@ -31,9 +31,11 @@ def _background_rgba(name: str) -> tuple[int, int, int, int]:
 
 
 def _look_at(camera: Any, target: Any, np: Any) -> Any:
+    """Build a camera pose for glTF's Y-up coordinate system."""
     forward = target - camera
     forward /= np.linalg.norm(forward)
-    right = np.cross(forward, np.array([0.0, 0.0, 1.0]))
+    world_up = np.array([0.0, 1.0, 0.0])
+    right = np.cross(forward, world_up)
     if np.linalg.norm(right) < 1e-6:
         right = np.array([1.0, 0.0, 0.0])
     right /= np.linalg.norm(right)
@@ -105,8 +107,8 @@ def render_turntable_gif(model_file: str, size: int, frames: int, fps: int,
                 horizontal = distance * math.sin(elevation_radians)
                 position = center + np.array([
                     horizontal * math.cos(angle),
-                    horizontal * math.sin(angle),
                     distance * math.cos(elevation_radians),
+                    horizontal * math.sin(angle),
                 ])
                 pose = _look_at(position, center, np)
                 scene.set_pose(camera_node, pose)
@@ -188,4 +190,57 @@ class GLBTurntableGIF:
         return {
             "ui": {"images": [{"filename": target.name, "subfolder": "douyin3d", "type": "output"}]},
             "result": (relative, batch),
+        }
+
+
+class FangSaveGIF:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "images": ("IMAGE",),
+            "filename_prefix": ("STRING", {"default": "douyin3d_turntable"}),
+            "fps": ("INT", {"default": 12, "min": 1, "max": 30, "step": 1}),
+            "loop": ("BOOLEAN", {"default": True}),
+        }}
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("gif_path",)
+    FUNCTION = "save"
+    CATEGORY = "Fang/3D"
+    OUTPUT_NODE = True
+    DESCRIPTION = "像 Save Image 一样接收 IMAGE 帧序列，直接保存并在画布预览 GIF。"
+
+    def save(self, images: Any, filename_prefix: str, fps: int, loop: bool):
+        try:
+            import numpy as np
+            from PIL import Image
+        except ImportError as exc:
+            raise TurntableRenderError("保存GIF需要NumPy和Pillow。") from exc
+        if not hasattr(images, "detach"):
+            raise TurntableRenderError("images 必须连接 ComfyUI IMAGE 输出。")
+        array = images.detach().to(device="cpu").float().numpy()
+        if array.ndim != 4 or array.shape[0] < 1 or array.shape[-1] not in (3, 4):
+            raise TurntableRenderError(f"IMAGE形状应为 [B,H,W,3|4]，实际为 {array.shape}。")
+        frames = []
+        for frame in array:
+            pixels = (np.clip(frame, 0, 1) * 255).round().astype(np.uint8)
+            frames.append(Image.fromarray(pixels, mode="RGBA" if pixels.shape[-1] == 4 else "RGB"))
+        prefix = Path(filename_prefix.strip()).name
+        prefix = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in prefix).strip("_") or "animation"
+        output_dir = _output_root() / "douyin3d"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        target = output_dir / f"{prefix}.gif"
+        frames[0].save(
+            target,
+            save_all=True,
+            append_images=frames[1:],
+            duration=max(1, round(1000 / int(fps))),
+            loop=0 if loop else 1,
+            disposal=2,
+            optimize=False,
+        )
+        relative = target.relative_to(_output_root()).as_posix()
+        return {
+            "ui": {"images": [{"filename": target.name, "subfolder": "douyin3d", "type": "output"}]},
+            "result": (relative,),
         }

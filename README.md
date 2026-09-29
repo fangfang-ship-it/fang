@@ -74,6 +74,16 @@ ComfyUI/output/douyin3d/<filename_prefix>_turntable.gif
 
 首次安装会通过 `requirements.txt` 安装 `trimesh` 与 `pyrender`，因此更新插件后必须重启房间。
 
+相机与环绕轴按 glTF 标准的 **Y轴向上** 处理，角色会保持站立，不再横躺。
+
+如需像 `Save Image` 一样显式保存，可将 `frames` 输出连接到：
+
+```text
+Save GIF / 保存 GIF
+```
+
+该节点可设置文件名前缀、FPS和循环播放，保存后同样会在画布中直接预览，文件位于 `ComfyUI/output/douyin3d/`。
+
 ## 其他 3D 节点
 
 - `Douyin3DDownloadGLB`：下载已有的公开 GLB，用于验证下游链路。
