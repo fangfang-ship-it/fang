@@ -172,8 +172,18 @@ class GLBTurntableGIF:
     def render(self, model_path: str, size: int, frames: int, fps: int,
                camera_elevation: int, background: str, direction: str,
                filename_prefix: str):
+        # ByteArtist may deserialize an existing workflow with a temporarily missing
+        # widget value after the node schema changes. Keep execution robust instead
+        # of passing None into int().
+        size = 512 if size is None else int(size)
+        frames = 36 if frames is None else int(frames)
+        fps = 12 if fps is None else int(fps)
+        camera_elevation = 75 if camera_elevation is None else int(camera_elevation)
+        background = background or "黑色"
+        direction = direction or "顺时针"
+        filename_prefix = filename_prefix or "douyin3d"
         target, images = render_turntable_gif(
-            model_path, int(size), int(frames), int(fps), int(camera_elevation),
+            model_path, size, frames, fps, camera_elevation,
             background, direction, filename_prefix,
         )
         try:
