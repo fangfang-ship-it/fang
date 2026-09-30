@@ -24,8 +24,10 @@ def _output_root() -> Path:
 def _background_rgba(name: str) -> tuple[int, int, int, int]:
     return {
         "透明": (0, 0, 0, 0),
-        "白色": (255, 255, 255, 255),
-        "黑色": (0, 0, 0, 255),
+        # Avoid exact palette endpoints: VHS/ffmpeg GIF quantization may reserve
+        # pure black/white as a transparency or disposal color between frames.
+        "白色": (250, 250, 250, 255),
+        "黑色": (8, 8, 8, 255),
         "灰色": (128, 128, 128, 255),
     }[name]
 
