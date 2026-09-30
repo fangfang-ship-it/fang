@@ -135,16 +135,19 @@ def render_turntable_gif(model_file: str, size: int, frames: int, fps: int,
     output_dir.mkdir(parents=True, exist_ok=True)
     target = output_dir / f"{prefix}_turntable.gif"
     duration = max(1, round(1000 / fps))
-    images[0].save(
-        target,
-        save_all=True,
-        append_images=images[1:],
-        duration=duration,
-        loop=0,
-        disposal=2,
-        optimize=False,
-        transparency=0 if background == "透明" else None,
-    )
+    save_options = {
+        "save_all": True,
+        "append_images": images[1:],
+        "duration": duration,
+        "loop": 0,
+        "disposal": 2,
+        "optimize": False,
+    }
+    # Pillow expects transparency to be an integer palette index. Passing None
+    # reaches int(None) inside GifImagePlugin for opaque backgrounds.
+    if background == "透明":
+        save_options["transparency"] = 0
+    images[0].save(target, **save_options)
     return target, images
 
 
