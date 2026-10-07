@@ -213,7 +213,7 @@ def _douyin_params(model_version: str, geometry_quality: str, texture_quality: s
         "gene_quality_geo": quality[geometry_quality],
         "gene_quality_tex": quality[texture_quality] if generate_texture else None,
         "uv_size": int(texture_size) if generate_texture else None,
-        "faces_num": max(100, min(1_000_000, int(faces))),
+        "faces_num": max(2_000, min(1_000_000, int(faces))),
         "enable_texture": bool(generate_texture),
         "enable_pbr": bool(enable_pbr) if generate_texture else False,
         "delight_strength": {"弱": 0, "强": 1}[delight_strength] if generate_texture else None,
@@ -233,7 +233,7 @@ def _vendor_params(supplier: str, model_profile: str, **values) -> tuple[str, di
     quality = {"低": 0, "中": 1, "高": 2, "超高": 3}
     geo = quality[values["geometry_quality"]]
     tex = quality[values["texture_quality"]]
-    faces = max(100, min(1_000_000, int(values["faces"])))
+    faces = max(2_000, min(1_000_000, int(values["faces"])))
     seed_geo = max(0, min(65535, int(values["geometry_seed"])))
     seed_tex = max(0, min(65535, int(values["texture_seed"])))
     pbr = bool(values["enable_pbr"] and values["generate_texture"])
@@ -342,6 +342,29 @@ def download_glb(url: str, asset_id: int, timeout: float = 120) -> Path:
     return target
 
 
+class FaceCountFromText:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "text": ("STRING", {"default": "500000", "multiline": True,
+                "tooltip": "连接面数分析节点的文本输出；自动提取第一个整数。"}),
+            "default_faces": ("INT", {"default": 500000, "min": 2000, "max": 1000000, "step": 100}),
+        }}
+
+    RETURN_TYPES = ("INT",)
+    RETURN_NAMES = ("faces",)
+    FUNCTION = "convert"
+    CATEGORY = "Fang/3D"
+    DESCRIPTION = "从文本中提取目标面数，限制到 2,000–1,000,000；解析失败时使用默认值。"
+
+    def convert(self, text: str, default_faces: int = 500000):
+        fallback = max(2_000, min(1_000_000, int(default_faces)))
+        normalized = str(text or "").replace(",", "").replace("，", "")
+        match = re.search(r"\d+", normalized)
+        faces = int(match.group()) if match else fallback
+        return (max(2_000, min(1_000_000, faces)),)
+
+
 class Douyin3DGenerate:
     @classmethod
     def INPUT_TYPES(cls):
@@ -355,7 +378,7 @@ class Douyin3DGenerate:
             "geometry_quality": (["低", "中", "高", "超高"], {"default": "高"}),
             "texture_quality": (["低", "中", "高", "超高"], {"default": "高"}),
             "texture_size": ([1024, 2048, 4096], {"default": 2048}),
-            "faces": ("INT", {"default": 500000, "min": 100, "max": 1000000, "step": 100}),
+            "faces": ("INT", {"default": 500000, "min": 2000, "max": 1000000, "step": 100}),
             "generate_texture": ("BOOLEAN", {"default": True}),
             "enable_pbr": ("BOOLEAN", {"default": True}),
             "delight_strength": (["弱", "强"], {"default": "弱"}),

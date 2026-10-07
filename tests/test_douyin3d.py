@@ -18,6 +18,18 @@ spec.loader.exec_module(module)
 
 
 class Douyin3DTests(unittest.TestCase):
+    def test_face_count_from_text_extracts_and_clamps_values(self):
+        node = module.FaceCountFromText()
+        self.assertEqual(node.convert("8000"), (8000,))
+        self.assertEqual(node.convert("建议使用 8,000 面"), (8000,))
+        self.assertEqual(node.convert("100"), (2000,))
+        self.assertEqual(node.convert("2000000"), (1000000,))
+
+    def test_face_count_from_text_uses_fallback_when_missing(self):
+        node = module.FaceCountFromText()
+        self.assertEqual(node.convert("无法判断", 500000), (500000,))
+        self.assertEqual(node.convert("", 100), (2000,))
+
     def test_ticket_contains_shifted_timestamp(self):
         with mock.patch.object(module.time, "time", return_value=100):
             self.assertEqual(base64.b64decode(module._ticket()).decode(), "1234567990")

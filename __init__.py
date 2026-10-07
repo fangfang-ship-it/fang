@@ -1,6 +1,6 @@
 """Fang ComfyUI custom nodes."""
 from .core import stretch_bottom_array
-from .douyin3d import Douyin3DDownloadGLB, Douyin3DGenerate
+from .douyin3d import Douyin3DDownloadGLB, Douyin3DGenerate, FaceCountFromText
 from .gaussian_blur import SkyGaussianBlurFloat
 from .glb_viewer import FangGLBWebViewer, FangSaveGLB
 from .turntable_gif import FangSaveGIF, GLBTurntableGIF
@@ -47,6 +47,7 @@ NODE_CLASS_MAPPINGS = {
     "SkyBottomStretchTo2To1": SkyBottomStretchTo2To1,
     "SkyGaussianBlurFloat": SkyGaussianBlurFloat,
     "Douyin3DGenerate": Douyin3DGenerate,
+    "FaceCountFromText": FaceCountFromText,
     "Douyin3DDownloadGLB": Douyin3DDownloadGLB,
     "FangGLBWebViewer": FangGLBWebViewer,
     "FangSaveGLB": FangSaveGLB,
@@ -57,6 +58,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
     "SkyGaussianBlurFloat": "Sky Gaussian Blur Float / 高斯模糊（小数半径）",
     "Douyin3DGenerate": "Douyin3D Image-to-3D / Douyin3D 图生模型",
+    "FaceCountFromText": "Face Count From Text / 文本转面数",
     "Douyin3DDownloadGLB": "Douyin3D Download Existing GLB / 下载已有3D模型",
     "FangGLBWebViewer": "Fang GLB Web Viewer / 浏览器3D预览",
     "FangSaveGLB": "Save GLB / 保存3D模型",
