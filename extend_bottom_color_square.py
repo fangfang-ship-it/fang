@@ -1,4 +1,4 @@
-"""Extend a 2:1 image to a square by filling below it with its bottom-edge color."""
+"""Extend a 2:1 image to a square by continuing its last row downward."""
 
 
 class SkyExtendBottomColorSquare:
@@ -12,7 +12,7 @@ class SkyExtendBottomColorSquare:
     CATEGORY = "Sky Tools"
     DESCRIPTION = (
         "保持2:1原图不变并放在正方形画布上半幅，"
-        "读取原图最底一整行的平均色，纯色填充新增的下半幅。"
+        "保留最底一行每个横向位置的颜色并逐行向下延伸。"
     )
 
     def extend(self, image):
@@ -29,10 +29,11 @@ class SkyExtendBottomColorSquare:
                 f"Input must be exactly 2:1, but received {width}x{height}."
             )
 
-        # Average the complete last row for each batch image. Keep floating-point
-        # values and dtype so the node does not introduce 8-bit quantization.
-        fill_color = image[:, -1:, :, :].mean(dim=2, keepdim=True)
+        # Preserve every pixel across the last row. Repeating the row downward
+        # keeps left-to-right color variation instead of collapsing it to one
+        # average color. Values and dtype remain unchanged.
+        edge_row = image[:, -1:, :, :]
         added_height = width - height
-        bottom = fill_color.expand(batch, added_height, width, channels)
+        bottom = edge_row.expand(batch, added_height, width, channels)
         output = torch.cat((image, bottom), dim=1)
         return (output,)
