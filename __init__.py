@@ -2,6 +2,7 @@
 from .core import stretch_bottom_array
 from .gaussian_blur import SkyGaussianBlurFloat
 from .repeat_top_fill import SkyRepeatTopFillBottom
+from .extend_bottom_color_square import SkyExtendBottomColorSquare
 
 
 class SkyBottomStretchTo2To1:
@@ -43,9 +44,11 @@ NODE_CLASS_MAPPINGS = {
     "SkyBottomStretchTo2To1": SkyBottomStretchTo2To1,
     "SkyGaussianBlurFloat": SkyGaussianBlurFloat,
     "SkyRepeatTopFillBottom": SkyRepeatTopFillBottom,
+    "SkyExtendBottomColorSquare": SkyExtendBottomColorSquare,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
     "SkyGaussianBlurFloat": "Sky Gaussian Blur Float / 高斯模糊（小数半径）",
     "SkyRepeatTopFillBottom": "Sky Repeat Top + Bottom Color / 天空横向双拼与底色填充",
+    "SkyExtendBottomColorSquare": "Sky Extend Bottom Color Square / 天空底色扩充至正方形",
 }
