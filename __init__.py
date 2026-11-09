@@ -3,6 +3,7 @@ from .core import stretch_bottom_array
 from .gaussian_blur import SkyGaussianBlurFloat
 from .repeat_top_fill import SkyRepeatTopFillBottom
 from .extend_bottom_color_square import SkyExtendBottomColorSquare
+from .cloud_bottom_align import SkyAlignCloudBottom, SkyParseCloudBottomPercent
 
 
 class SkyBottomStretchTo2To1:
@@ -26,7 +27,6 @@ class SkyBottomStretchTo2To1:
         import torch
         if not isinstance(image, torch.Tensor) or not image.is_floating_point():
             raise ValueError("Expected a floating-point ComfyUI IMAGE tensor.")
-        # CPU processing works without CUDA; float conversion supports bfloat16.
         cpu = image.detach().to(device="cpu")
         if cpu.dtype not in (torch.float32, torch.float64):
             cpu = cpu.float()
@@ -45,10 +45,14 @@ NODE_CLASS_MAPPINGS = {
     "SkyGaussianBlurFloat": SkyGaussianBlurFloat,
     "SkyRepeatTopFillBottom": SkyRepeatTopFillBottom,
     "SkyExtendBottomColorSquare": SkyExtendBottomColorSquare,
+    "SkyParseCloudBottomPercent": SkyParseCloudBottomPercent,
+    "SkyAlignCloudBottom": SkyAlignCloudBottom,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
     "SkyGaussianBlurFloat": "Sky Gaussian Blur Float / 高斯模糊（小数半径）",
     "SkyRepeatTopFillBottom": "Sky Repeat Top + Bottom Color / 天空横向双拼与底色填充",
     "SkyExtendBottomColorSquare": "Sky Extend Bottom Color Square / 天空底色扩充至正方形",
+    "SkyParseCloudBottomPercent": "Sky Parse Cloud Bottom % / 解析最低云端百分比",
+    "SkyAlignCloudBottom": "Sky Align Cloud Bottom / 最低云端垂直对齐",
 }
