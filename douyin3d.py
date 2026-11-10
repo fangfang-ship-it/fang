@@ -23,7 +23,7 @@ _SUPPLIERS = {
     "Rodin": "rodin", "Seed3D": "seed3d", "Tripo3D": "tripo3d",
 }
 _MODEL_PROFILES = [
-    "推荐（随供应商）", "Douyin V3.1-fast", "Douyin V3.1",
+    "推荐（随供应商）", "Douyin V3.5", "Douyin V3.1-fast", "Douyin V3.1",
     "混元 3.0", "混元 3.1", "混元 Express", "Rodin Gen-1", "Rodin Gen-2",
     "Rodin Gen-2.5", "Seed3D 2.0", "Tripo v3.1", "Tripo v3.0", "Tripo v2.5",
     "Tripo P1", "Tripo P2 Preview",
@@ -207,13 +207,13 @@ def _douyin_params(model_version: str, geometry_quality: str, texture_quality: s
                    enable_pbr: bool, delight_strength: str, split_model: bool,
                    quad_remesh: bool, geometry_seed: int, texture_seed: int) -> dict[str, Any]:
     quality = {"低": 0, "中": 1, "高": 2, "超高": 3}
-    return {
+    is_v35 = model_version == "V3.5"
+    params = {
         "style": 0,
-        "model_version": {"V3.1": 0, "V3.1-fast": 1}[model_version],
-        "gene_quality_geo": quality[geometry_quality],
-        "gene_quality_tex": quality[texture_quality] if generate_texture else None,
+        "model_version": {"V3.1": 0, "V3.1-fast": 1, "V3.5": 2}[model_version],
         "uv_size": int(texture_size) if generate_texture else None,
-        "faces_num": max(2_000, min(1_000_000, int(faces))),
+        "faces_num": max(100, min(1_500_000, int(faces))) if is_v35
+                     else max(2_000, min(1_000_000, int(faces))),
         "enable_texture": bool(generate_texture),
         "enable_pbr": bool(enable_pbr) if generate_texture else False,
         "delight_strength": {"弱": 0, "强": 1}[delight_strength] if generate_texture else None,
@@ -223,13 +223,28 @@ def _douyin_params(model_version: str, geometry_quality: str, texture_quality: s
         "seed_geo": max(0, min(65535, int(geometry_seed))),
         "seed_tex": max(0, min(65535, int(texture_seed))) if generate_texture else None,
     }
+    if is_v35:
+        # V3.5 only accepts the unified quality field. The legacy geometry/texture
+        # quality fields must be omitted entirely rather than sent as null or zero.
+        params["gene_quality"] = quality[geometry_quality]
+    else:
+        params["gene_quality_geo"] = quality[geometry_quality]
+        params["gene_quality_tex"] = quality[texture_quality] if generate_texture else None
+    return params
 
 
 def _vendor_params(supplier: str, model_profile: str, **values) -> tuple[str, dict[str, Any]]:
     vendor = _SUPPLIERS[supplier]
     if vendor == "douyin3d":
-        version = "V3.1" if model_profile == "Douyin V3.1" else "V3.1-fast"
-        return vendor, {"douyin3d_params": _douyin_params(model_version=version, **values)}
+        versions = {
+            "Douyin V3.1": "V3.1",
+            "Douyin V3.1-fast": "V3.1-fast",
+            "Douyin V3.5": "V3.5",
+            "推荐（随供应商）": "V3.5",
+        }
+        return vendor, {"douyin3d_params": _douyin_params(
+            model_version=versions.get(model_profile, "V3.5"), **values
+        )}
     quality = {"低": 0, "中": 1, "高": 2, "超高": 3}
     geo = quality[values["geometry_quality"]]
     tex = quality[values["texture_quality"]]
@@ -348,21 +363,21 @@ class FaceCountFromText:
         return {"required": {
             "text": ("STRING", {"default": "500000", "multiline": True,
                 "tooltip": "连接面数分析节点的文本输出；自动提取第一个整数。"}),
-            "default_faces": ("INT", {"default": 500000, "min": 2000, "max": 1000000, "step": 100}),
+            "default_faces": ("INT", {"default": 500000, "min": 100, "max": 1500000, "step": 100}),
         }}
 
     RETURN_TYPES = ("INT",)
     RETURN_NAMES = ("faces",)
     FUNCTION = "convert"
     CATEGORY = "Fang/3D"
-    DESCRIPTION = "从文本中提取目标面数，限制到 2,000–1,000,000；解析失败时使用默认值。"
+    DESCRIPTION = "从文本中提取目标面数，限制到 100–1,500,000；解析失败时使用默认值。"
 
     def convert(self, text: str, default_faces: int = 500000):
-        fallback = max(2_000, min(1_000_000, int(default_faces)))
+        fallback = max(100, min(1_500_000, int(default_faces)))
         normalized = str(text or "").replace(",", "").replace("，", "")
         match = re.search(r"\d+", normalized)
         faces = int(match.group()) if match else fallback
-        return (max(2_000, min(1_000_000, faces)),)
+        return (max(100, min(1_500_000, faces)),)
 
 
 class Douyin3DGenerate:
@@ -375,10 +390,12 @@ class Douyin3DGenerate:
             "asset_name": ("STRING", {"default": "ComfyUI image-to-3D"}),
             "supplier": (list(_SUPPLIERS), {"default": "Douyin3D"}),
             "model_profile": (_MODEL_PROFILES, {"default": "推荐（随供应商）"}),
-            "geometry_quality": (["低", "中", "高", "超高"], {"default": "高"}),
-            "texture_quality": (["低", "中", "高", "超高"], {"default": "高"}),
+            "geometry_quality": (["低", "中", "高", "超高"], {"default": "高",
+                "tooltip": "V3.5 中作为统一生成质量；旧版本中仅控制几何质量。"}),
+            "texture_quality": (["低", "中", "高", "超高"], {"default": "高",
+                "tooltip": "仅旧版本使用；V3.5 使用统一生成质量并忽略此项。"}),
             "texture_size": ([1024, 2048, 4096], {"default": 2048}),
-            "faces": ("INT", {"default": 500000, "min": 2000, "max": 1000000, "step": 100}),
+            "faces": ("INT", {"default": 500000, "min": 100, "max": 1500000, "step": 100}),
             "generate_texture": ("BOOLEAN", {"default": True}),
             "enable_pbr": ("BOOLEAN", {"default": True}),
             "delight_strength": (["弱", "强"], {"default": "弱"}),

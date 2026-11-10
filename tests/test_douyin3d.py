@@ -22,13 +22,13 @@ class Douyin3DTests(unittest.TestCase):
         node = module.FaceCountFromText()
         self.assertEqual(node.convert("8000"), (8000,))
         self.assertEqual(node.convert("建议使用 8,000 面"), (8000,))
-        self.assertEqual(node.convert("100"), (2000,))
-        self.assertEqual(node.convert("2000000"), (1000000,))
+        self.assertEqual(node.convert("100"), (100,))
+        self.assertEqual(node.convert("2000000"), (1500000,))
 
     def test_face_count_from_text_uses_fallback_when_missing(self):
         node = module.FaceCountFromText()
         self.assertEqual(node.convert("无法判断", 500000), (500000,))
-        self.assertEqual(node.convert("", 100), (2000,))
+        self.assertEqual(node.convert("", 100), (100,))
 
     def test_ticket_contains_shifted_timestamp(self):
         with mock.patch.object(module.time, "time", return_value=100):
@@ -73,6 +73,29 @@ class Douyin3DTests(unittest.TestCase):
         self.assertEqual(params["uv_size"], 1024)
         self.assertEqual(params["faces_num"], 5000)
         self.assertEqual(params["seed_tex"], 22)
+
+    def test_v35_uses_unified_quality_and_omits_legacy_quality_fields(self):
+        params = module._douyin_params(
+            "V3.5", "超高", "低", 4096, 1500000, True, True,
+            "强", False, False, 11, 22,
+        )
+        self.assertEqual(params["model_version"], 2)
+        self.assertEqual(params["gene_quality"], 3)
+        self.assertNotIn("gene_quality_geo", params)
+        self.assertNotIn("gene_quality_tex", params)
+        self.assertEqual(params["faces_num"], 1500000)
+
+    def test_recommended_douyin_profile_uses_v35(self):
+        vendor, fields = module._vendor_params(
+            "Douyin3D", "推荐（随供应商）",
+            geometry_quality="高", texture_quality="中", texture_size=2048,
+            faces=500000, generate_texture=True, enable_pbr=True,
+            delight_strength="弱", split_model=False, quad_remesh=False,
+            geometry_seed=0, texture_seed=0,
+        )
+        self.assertEqual(vendor, "douyin3d")
+        self.assertEqual(fields["douyin3d_params"]["model_version"], 2)
+        self.assertEqual(fields["douyin3d_params"]["gene_quality"], 2)
 
     def test_image_upload_uses_unique_path(self):
         image = mock.MagicMock()
