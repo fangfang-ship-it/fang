@@ -16,10 +16,18 @@
 
 1. 打开 **Manager → 通过URL链接下载 → 插件下载**。类型选 `branch`，Git 链接填 `https://github.com/fangfang-ship-it/fang.git`，分支填 `far-scenery-pbr`。下载后按平台提示重启。
 2. 单片模式新建 **加载图像（Load Image）**，选一张已扣好的透明 PNG。新建 **远景透明圆弧 GLB（FarSceneryExportGLB）**。把 `IMAGE` 接 `image`，把 `MASK` 接 `mask`。`mask_mode` 保持 `ComfyUI mask (white = transparent)`。单片模式默认半径 1600、圆弧 74°、32 段、底部高度 −26。
-3. 填一个英文资源名，例如 `gobi-mesa`，运行。节点输出 `glb_path`、`download_url` 和 `report`。需要在画布上查看链接时，可把 `download_url` 接到环境里的文本预览节点。链接以当前 ComfyUI 工作台服务为基址，托管平台是否代理该文件下载由平台决定。
+3. 填一个英文资源名，例如 `gobi-mesa`，运行。节点输出 `glb_path`、`download_url` 和 `report`。可把 `download_url` 接到环境里的文本预览节点。
 4. 把下载的 GLB 导入造世界编辑器 3，核对山体颜色、周围透明和相机移动时的效果。山脚高度可通过 `base_y` 或编辑器摆放调整。
 
 每次导出把 `.glb`、`.png` 和 `manifest.json` 写入 `output/far-scenery/<asset_id>-<内容摘要>/`。同一输入和参数复用同一目录。标准 ComfyUI 也可以拖入 [两节点工作流](workflows/png_to_glb.json)，再选本地 PNG。
+
+## 下载 GLB
+
+标准 ComfyUI 中，导出节点运行后提供蓝色「下载 … .glb」链接。节点同时提供标准的 3D 文件输出记录。工作台如果自带 3D 产物卡片，可通过产物卡片下载。
+
+两个导出节点都有选填的 `workbench_url`。在 ByteArtist 填承载 ComfyUI 画布的工作台地址，例如 `https://workbench.example.com`。可直接粘贴工作台页面的网址，节点会提取域名生成完整的 `download_url`。在浏览器打开这个以 `https://` 开头的完整链接。
+
+留空时 `download_url` 是 `/api/view?...` 形式的相对地址。需要在同一工作台域名下访问，单独粘贴到浏览器可能被当作本地文件。`glb_path` 是工作台机器上的文件路径。`manifest.json` 记录相对地址，便于输出在不同工作台间复用。
 
 ## 接入参考图生图
 
