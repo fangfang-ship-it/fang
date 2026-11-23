@@ -36,7 +36,7 @@
         {"name": "report", "type": "STRING", "links": []}
       ],
       "properties": {"Node name for S&R": "FarSceneryExportGLB"},
-      "widgets_values": ["far-ridge", 1600.0, 74.0, 32, -26.0, "ComfyUI mask (white = transparent)"]
+      "widgets_values": ["far-ridge", 1600.0, 74.0, 32, -26.0, "ComfyUI mask (white = transparent)", ""]
     }
   ],
   "links": [[1, 1, 0, 2, 0, "IMAGE"], [2, 1, 1, 2, 1, "MASK"]],
