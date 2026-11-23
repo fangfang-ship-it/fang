@@ -19,6 +19,8 @@
 
 把该节点的 `image` 和 `mask` 接到 **远景贴图适配** 的同名输入，`mask_mode` 选 `ComfyUI mask (white = transparent)`。先用默认的 `background_tolerance=8`、`opaque_distance=56` 试一张。前者控制要清到全透明的近白范围，后者控制颜色差多大时恢复全不透明。两者之间保留渐变。用深灰底检查山脚和白边，再接五路。适配节点的 `foot_fade_px` 可保持 0，使用生图中的山脚渐变。
 
+`preview` 已把颜色和遮罩合成到深灰底，可接 **预览图像** 检查。工作台单独展示 `image` 时，只能看到 RGB。需要带真实透明通道的文件时，取 GLB 导出节点同时保存的 RGBA PNG。
+
 ## 在 ByteArtist 安装与单片导出
 
 1. 打开 **Manager → 通过URL链接下载 → 插件下载**。类型选 `branch`，Git 链接填 `https://github.com/fangfang-ship-it/fang.git`，分支填 `far-scenery-pbr`。下载后按平台提示重启。
