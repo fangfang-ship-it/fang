@@ -84,6 +84,18 @@ def resolve_download_url(workbench_url, relative_url):
     return f"{parts.scheme}://{parts.netloc}{relative_url}"
 
 
+def fade_foot(alpha, pixels):
+    visible = alpha >= 13 / 255
+    first = visible.argmax(axis=0)
+    last = alpha.shape[0] - 1 - visible[::-1].argmax(axis=0)
+    # Keep the fade within the lowest quarter of thin foothills.
+    band = np.minimum(pixels, (last - first + 1) // 4)
+    active = visible.any(axis=0) & (band > 0)
+    rows = np.arange(alpha.shape[0], dtype=np.float32)[:, None]
+    ramp = np.clip((last - rows) / np.maximum(1, band), 0.0, 1.0)
+    np.multiply(alpha, ramp * ramp * (3.0 - 2.0 * ramp), out=alpha, where=active)
+
+
 class FarSceneryFitTexture:
     @classmethod
     def INPUT_TYPES(cls):
@@ -94,6 +106,9 @@ class FarSceneryFitTexture:
             "center_percent": ("FLOAT", {"default": 50.0, "min": 0.0, "max": 100.0, "step": 0.5}),
             "foot_line_px": ("INT", {"default": RING_FOOT_LINE, "min": 2, "max": RING_TEXTURE_SIZE[1]}),
             "mask_mode": ([COMFY_MASK, FOREGROUND_MASK],),
+        }, "optional": {
+            "foot_fade_px": ("INT", {"default": 0, "min": 0, "max": 80, "step": 1,
+                                    "tooltip": "在 2048 × 640 贴图上沿山脚向上渐隐。先试 24 px，0 为原始遮罩。"}),
         }}
 
     RETURN_TYPES = ("IMAGE", "MASK")
@@ -102,12 +117,14 @@ class FarSceneryFitTexture:
     CATEGORY = "Far Scenery"
     DESCRIPTION = "等比缩放透明山体，对齐山脚并输出 2048 × 640 画布。"
 
-    def fit(self, image, mask, width_percent, center_percent, foot_line_px, mask_mode):
+    def fit(self, image, mask, width_percent, center_percent, foot_line_px, mask_mode, foot_fade_px=0):
         import torch
 
         width, height = RING_TEXTURE_SIZE
         if not (1 <= width_percent <= 100 and 0 <= center_percent <= 100 and 2 <= foot_line_px <= height):
             raise ValueError("请检查山体占宽、横向中心和山脚线的范围。")
+        if not 0 <= foot_fade_px <= 80:
+            raise ValueError("山脚渐隐 foot_fade_px 的范围为 0–80 px。")
         rgba = read_rgba(image, mask, mask_mode)
         bounds = visible_bounds(rgba[..., 3])
         mountain = Image.fromarray(rgba).crop(bounds)
@@ -125,6 +142,8 @@ class FarSceneryFitTexture:
         canvas = Image.new("RGBA", RING_TEXTURE_SIZE)
         canvas.paste(mountain.resize((target_width, target_height), Image.Resampling.LANCZOS), (left, top))
         fitted = np.asarray(canvas, dtype=np.float32) / 255.0
+        if foot_fade_px:
+            fade_foot(fitted[..., 3], foot_fade_px)
         return (
             torch.from_numpy(fitted[None, ..., :3].copy()),
             torch.from_numpy(1.0 - fitted[None, ..., 3]),
