@@ -1,11 +1,21 @@
 # 远景透明圆弧 GLB
 
-这个插件把有透明背景的远景图装到以地形中心为圆心的圆弧网格上，导出单文件 GLB。GLB 内嵌 RGBA 贴图，材质采用 glTF 的标准 PBR、Alpha Blend 和双面显示。默认半径 1600、圆弧 74°、32 段、底部高度 −26，对应 64 个三角面。节点使用 ComfyUI 已有的 NumPy 和 Pillow。
+这个插件把有透明背景的远景图装到以地形中心为圆心的圆弧网格上，导出单文件 GLB。GLB 内嵌 RGBA 贴图，材质采用 glTF 的标准 PBR、Alpha Blend 和双面显示。提供固定尺寸的整圈模板和按贴图比例生成的单片模式。适配和导出都在 CPU 上完成。
 
-## 在 ByteArtist 验证透明 PNG 到 GLB
+## 五片围成一圈
+
+在 ByteArtist 添加 **加载图像 → 远景贴图适配（FarSceneryFitTexture）→ 远景固定模板 GLB（FarSceneryExportRingGLB）**。每段各连 `IMAGE → image` 和 `MASK → mask`。标准 ComfyUI 可直接打开 [三节点工作流](workflows/ring_template.json)。
+
+- `width_percent` 是山体占画布的宽度，默认 90%。缩放保持宽高比。`center_percent` 是横向中心，默认 50% 居中。
+- `foot_line_px` 是从画布顶部量起的山脚线，默认 600。五片通常共用这个值。默认山脚线映射至 GLB 的 `Y=0`，画布下方还有 40 px。
+- 用加载图像的遮罩时保持默认 `ComfyUI mask (white = transparent)`。用白色表示山体的分割遮罩时，在贴图适配节点选 `Foreground alpha (white = opaque)`。适配节点总是输出标准 ComfyUI 遮罩，直接接给固定模板导出节点。
+- 固定模板使用 **2048 × 640** 整张画布、**500 m** 半径、**72°** 弧段、**32 段**、约 **628.3 m** 展开宽和约 **196.3 m** 高。同一套网格、原点和 UV 用于五个方位，透明留白按原样保留。
+- 给每片不同的 `asset_id`，例如 `far-ring-01` 至 `far-ring-05`。在编辑器把模型原点放在同一个地形中心，依次绕竖直轴旋转 `0°、72°、144°、216°、288°`。山脊要连续时，在贴图阶段对齐相邻边缘。
+
+## 在 ByteArtist 安装与单片导出
 
 1. 打开 **Manager → 通过URL链接下载 → 插件下载**。类型选 `branch`，Git 链接填 `https://github.com/fangfang-ship-it/fang.git`，分支填 `far-scenery-pbr`。下载后按平台提示重启。
-2. 新建 **加载图像（Load Image）**，选一张已扣好的透明 PNG。新建 **远景透明圆弧 GLB（FarSceneryExportGLB）**。把 `IMAGE` 接 `image`，把 `MASK` 接 `mask`。`mask_mode` 保持 `ComfyUI mask (white = transparent)`。
+2. 单片模式新建 **加载图像（Load Image）**，选一张已扣好的透明 PNG。新建 **远景透明圆弧 GLB（FarSceneryExportGLB）**。把 `IMAGE` 接 `image`，把 `MASK` 接 `mask`。`mask_mode` 保持 `ComfyUI mask (white = transparent)`。单片模式默认半径 1600、圆弧 74°、32 段、底部高度 −26。
 3. 填一个英文资源名，例如 `gobi-mesa`，运行。节点输出 `glb_path`、`download_url` 和 `report`。需要在画布上查看链接时，可把 `download_url` 接到环境里的文本预览节点。链接以当前 ComfyUI 工作台服务为基址，托管平台是否代理该文件下载由平台决定。
 4. 把下载的 GLB 导入造世界编辑器 3，核对山体颜色、周围透明和相机移动时的效果。山脚高度可通过 `base_y` 或编辑器摆放调整。
 
