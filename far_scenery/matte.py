@@ -15,8 +15,8 @@ class FarSceneryWhiteMatte:
                                          "tooltip": "与底色相差达到此值时保留为实色。两项之间输出渐变透明度。"}),
         }}
 
-    RETURN_TYPES = ("IMAGE", "MASK")
-    RETURN_NAMES = ("image", "mask")
+    RETURN_TYPES = ("IMAGE", "MASK", "IMAGE")
+    RETURN_NAMES = ("image", "mask", "preview")
     FUNCTION = "key"
     CATEGORY = "Far Scenery"
     DESCRIPTION = "从近白背景提取软遮罩，同时去除边缘混入的底色。MASK 白色表示透明。"
@@ -52,7 +52,19 @@ class FarSceneryWhiteMatte:
         if alpha.min() >= 0.05 or alpha.max() < 0.5:
             raise ValueError("遮罩需要同时包含透明背景和可见山体，请检查底色或调整两个色差值。")
 
-        # Undo the white contribution in C = alpha * foreground + (1 - alpha) * background.
-        clean_rgb = background + (rgb - background) / np.maximum(alpha[..., None], 1.0 / 255.0)
+        # Limit color recovery in faint pixels so JPEG noise is not amplified.
+        opacity = alpha[..., None]
+        clean_rgb = background + (rgb - background) / np.maximum(opacity, 0.20)
         np.clip(clean_rgb, 0.0, 1.0, out=clean_rgb)
-        return (torch.from_numpy(clean_rgb[None]), torch.from_numpy(1.0 - alpha[None]))
+        clean_rgb[alpha == 0.0] = background
+
+        # Composite the RGB and Alpha for workbenches that display image outputs as JPEG.
+        preview_background = np.array([35, 42, 52], dtype=np.float32) / 255.0
+        preview_rgb = clean_rgb * opacity + preview_background * (1.0 - opacity)
+        preview = Image.fromarray(np.rint(preview_rgb * 255).astype(np.uint8))
+        preview.thumbnail((960, 960), Image.Resampling.LANCZOS)
+        return (
+            torch.from_numpy(clean_rgb[None]),
+            torch.from_numpy(1.0 - alpha[None]),
+            torch.from_numpy(np.asarray(preview, dtype=np.float32)[None] / 255.0),
+        )
