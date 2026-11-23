@@ -22,7 +22,7 @@
       "id": 2,
       "type": "FarSceneryFitTexture",
       "pos": [440, 100],
-      "size": [370, 200],
+      "size": [370, 224],
       "flags": {},
       "order": 1,
       "mode": 0,
@@ -35,7 +35,7 @@
         {"name": "mask", "type": "MASK", "links": [4]}
       ],
       "properties": {"Node name for S&R": "FarSceneryFitTexture"},
-      "widgets_values": [90.0, 50.0, 600, "ComfyUI mask (white = transparent)"]
+      "widgets_values": [90.0, 50.0, 600, "ComfyUI mask (white = transparent)", 0]
     },
     {
       "id": 3,
