@@ -238,6 +238,63 @@ class FarSceneryExportRingGLB(ArcExport):
         )
 
 
+def decode_plan_object(pairs):
+    fields = dict(pairs)
+    if len(fields) == len(pairs):
+        return fields
+
+    # Some text models repeat five complete pairs inside a single asset object.
+    if [key for key, _ in pairs] == ["asset_id", "prompt"] * 5:
+        return tuple(dict(pairs[i:i + 2]) for i in range(0, len(pairs), 2))
+    raise ValueError("规划 JSON 含重复字段，请让每个 asset_id 和 prompt 位于独立对象中。")
+
+
+def read_plan(plan):
+    text = plan.strip().removeprefix("\ufeff").strip()
+    if text.startswith("```") and text.endswith("```"):
+        text = text.split("\n", 1)[-1][:-3].strip()
+    try:
+        document = json.loads(text, object_pairs_hook=decode_plan_object)
+    except json.JSONDecodeError as error:
+        raise ValueError("规划节点须返回有效 JSON，根字段为 assets。") from error
+
+    assets = document.get("assets") if isinstance(document, dict) else None
+    if not isinstance(assets, list) or not 1 <= len(assets) <= 10:
+        raise ValueError("assets 必须包含 1–10 件远景。")
+    if len(assets) == 1 and isinstance(assets[0], tuple):
+        assets = list(assets[0])
+
+    seen = set()
+    for item in assets:
+        if not isinstance(item, dict):
+            raise ValueError("每个资产必须是 JSON 对象。")
+        asset_id, prompt = item.get("asset_id"), item.get("prompt")
+        if not isinstance(asset_id, str) or not ASSET_ID.fullmatch(asset_id) or asset_id in seen:
+            raise ValueError("每个 asset_id 必须是唯一的安全英文文件名。")
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError(f"{asset_id} 缺少生图提示词。")
+        seen.add(asset_id)
+    return assets
+
+
+class FarScenerySplitPlan:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {"plan": ("STRING", {"forceInput": True})}}
+
+    RETURN_TYPES = ("STRING",) * 5
+    RETURN_NAMES = ("prompt_1", "prompt_2", "prompt_3", "prompt_4", "prompt_5")
+    FUNCTION = "split"
+    CATEGORY = "Far Scenery"
+    DESCRIPTION = "按 assets 数组顺序，一次拆出五条远景生图提示词。"
+
+    def split(self, plan):
+        assets = read_plan(plan)
+        if len(assets) != 5:
+            raise ValueError(f"五路拆分需要恰好五项，当前收到 {len(assets)} 项。")
+        return tuple(item["prompt"].strip() for item in assets)
+
+
 class FarSceneryPlanItem:
     @classmethod
     def INPUT_TYPES(cls):
@@ -253,28 +310,9 @@ class FarSceneryPlanItem:
     DESCRIPTION = "Select one image prompt and its matching export ID from a far scenery plan."
 
     def select(self, plan, index):
-        text = plan.strip()
-        if text.startswith("```") and text.endswith("```"):
-            text = text.split("\n", 1)[-1][:-3].strip()
-        try:
-            document = json.loads(text)
-            assets = document.get("assets") if isinstance(document, dict) else None
-        except json.JSONDecodeError as error:
-            raise ValueError("规划节点须返回有效 JSON，根字段为 assets。") from error
-        if not isinstance(assets, list) or not 1 <= len(assets) <= 10:
-            raise ValueError("assets 必须包含 1–10 件远景。")
+        assets = read_plan(plan)
         if not 1 <= index <= len(assets):
             raise ValueError(f"当前清单只有 {len(assets)} 项，无法读取第 {index} 项。")
-        seen = set()
-        for item in assets:
-            if not isinstance(item, dict):
-                raise ValueError("每个资产必须是 JSON 对象。")
-            asset_id, prompt = item.get("asset_id"), item.get("prompt")
-            if not isinstance(asset_id, str) or not ASSET_ID.fullmatch(asset_id) or asset_id in seen:
-                raise ValueError("每个 asset_id 必须是唯一的安全英文文件名。")
-            if not isinstance(prompt, str) or not prompt.strip():
-                raise ValueError(f"{asset_id} 缺少生图提示词。")
-            seen.add(asset_id)
         item = assets[index - 1]
         return item["prompt"].strip(), item["asset_id"]
 
@@ -283,11 +321,13 @@ NODE_CLASS_MAPPINGS = {
     "FarSceneryFitTexture": FarSceneryFitTexture,
     "FarSceneryExportRingGLB": FarSceneryExportRingGLB,
     "FarSceneryExportGLB": FarSceneryExportGLB,
+    "FarScenerySplitPlan": FarScenerySplitPlan,
     "FarSceneryPlanItem": FarSceneryPlanItem,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "FarSceneryFitTexture": "Far Scenery Fit Texture / 远景贴图适配",
     "FarSceneryExportRingGLB": "Far Scenery Export Ring GLB / 远景固定模板 GLB",
     "FarSceneryExportGLB": "Far Scenery Export GLB / 远景透明圆弧 GLB",
+    "FarScenerySplitPlan": "Far Scenery Split Plan / 拆分五条远景提示词",
     "FarSceneryPlanItem": "Far Scenery Plan Item / 读取远景方案",
 }
