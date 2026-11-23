@@ -5,6 +5,7 @@ from .repeat_top_fill import SkyRepeatTopFillBottom
 from .extend_bottom_color_square import SkyExtendBottomColorSquare
 from .cloud_bottom_align import SkyAlignCloudBottom, SkyParseCloudBottomPercent
 from .square_to_2to1 import SkySquareTo2To1Fixed
+from .square_to_2to1_white_pad import SkySquareTo2To1WhitePad
 
 
 class SkyBottomStretchTo2To1:
@@ -49,6 +50,7 @@ NODE_CLASS_MAPPINGS = {
     "SkyParseCloudBottomPercent": SkyParseCloudBottomPercent,
     "SkyAlignCloudBottom": SkyAlignCloudBottom,
     "SkySquareTo2To1Fixed": SkySquareTo2To1Fixed,
+    "SkySquareTo2To1WhitePad": SkySquareTo2To1WhitePad,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyBottomStretchTo2To1": "Sky Bottom Stretch 2:1 / 天空底部拉伸",
@@ -58,4 +60,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyParseCloudBottomPercent": "Sky Parse Cloud Bottom % / 解析最低云端百分比",
     "SkyAlignCloudBottom": "Sky Align Cloud Bottom / 最低云端垂直对齐",
     "SkySquareTo2To1Fixed": "Sky Square to 2:1 4096x2048 / 1:1转2:1固定尺寸",
+    "SkySquareTo2To1WhitePad": "Sky Square to 2:1 White Pad / 1:1转2:1左右补白",
 }
