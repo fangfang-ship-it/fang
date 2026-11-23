@@ -1,5 +1,9 @@
 """ComfyUI Sky Tools. Uses ComfyUI's existing torch/numpy/Pillow."""
 from .core import stretch_bottom_array
+from .far_scenery import (
+    NODE_CLASS_MAPPINGS as FAR_SCENERY_NODES,
+    NODE_DISPLAY_NAME_MAPPINGS as FAR_SCENERY_NAMES,
+)
 from .gaussian_blur import SkyGaussianBlurFloat
 from .repeat_top_fill import SkyRepeatTopFillBottom
 from .extend_bottom_color_square import SkyExtendBottomColorSquare
@@ -56,3 +60,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SkyParseCloudBottomPercent": "Sky Parse Cloud Bottom % / 解析最低云端百分比",
     "SkyAlignCloudBottom": "Sky Align Cloud Bottom / 最低云端垂直对齐",
 }
+
+NODE_CLASS_MAPPINGS.update(FAR_SCENERY_NODES)
+NODE_DISPLAY_NAME_MAPPINGS.update(FAR_SCENERY_NAMES)
