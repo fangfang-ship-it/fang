@@ -7,7 +7,7 @@ import math
 from pathlib import Path
 import re
 from tempfile import NamedTemporaryFile
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import numpy as np
 from PIL import Image
@@ -15,6 +15,7 @@ from PIL import Image
 from .glb import build_glb
 
 
+WEB_DIRECTORY = "./web"
 COMFY_MASK = "ComfyUI mask (white = transparent)"
 FOREGROUND_MASK = "Foreground alpha (white = opaque)"
 ASSET_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,47}")
@@ -73,6 +74,16 @@ def write_atomic(path, payload):
             temp_path.unlink(missing_ok=True)
 
 
+def resolve_download_url(workbench_url, relative_url):
+    address = workbench_url.strip()
+    if not address:
+        return relative_url
+    parts = urlsplit(address)
+    if parts.scheme not in ("http", "https") or not parts.hostname or parts.username is not None:
+        raise ValueError("workbench_url 请填写工作台的完整 http:// 或 https:// 地址。")
+    return f"{parts.scheme}://{parts.netloc}{relative_url}"
+
+
 class FarSceneryFitTexture:
     @classmethod
     def INPUT_TYPES(cls):
@@ -126,8 +137,12 @@ class ArcExport:
     FUNCTION = "export"
     OUTPUT_NODE = True
     CATEGORY = "Far Scenery"
+    DOWNLOAD_INPUTS = {"workbench_url": ("STRING", {
+        "default": "",
+        "tooltip": "填工作台地址以输出完整 GLB 下载链接，例如 https://workbench.example.com。",
+    })}
 
-    def write_export(self, png, asset_id, radius, arc_degrees, segments, base_y, window, touches_edge):
+    def write_export(self, png, asset_id, radius, arc_degrees, segments, base_y, window, touches_edge, workbench_url):
         import folder_paths
 
         if not ASSET_ID.fullmatch(asset_id):
@@ -136,16 +151,17 @@ class ArcExport:
         digest = hashlib.sha256(glb).hexdigest()
         subfolder = f"far-scenery/{asset_id}-{digest[:12]}"
         destination = Path(folder_paths.get_output_directory()) / subfolder
-        destination.mkdir(parents=True, exist_ok=True)
         glb_name = asset_id + ".glb"
         png_name = asset_id + ".png"
-        url = "/api/view?" + urlencode({"filename": glb_name, "subfolder": subfolder, "type": "output"})
+        relative_url = "/api/view?" + urlencode({"filename": glb_name, "subfolder": subfolder, "type": "output"})
+        url = resolve_download_url(workbench_url, relative_url)
+        destination.mkdir(parents=True, exist_ok=True)
         warnings = ["Visible alpha touches a texture edge. / 可见区域触边，请检查轮廓。"] if touches_edge else []
         report = {
             "asset_id": asset_id,
             "glb": glb_name,
             "png": png_name,
-            "download_url": url,
+            "download_url": relative_url,
             "sha256": digest,
             "triangles": segments * 2,
             "material": {"model": "PBR", "alphaMode": "BLEND", "doubleSided": True},
@@ -158,8 +174,11 @@ class ArcExport:
         write_atomic(destination / png_name, png)
         write_atomic(destination / "manifest.json", report_text.encode("utf-8"))
         return {
-            "ui": {"images": [{"filename": png_name, "subfolder": subfolder, "type": "output"}],
-                   "text": [url]},
+            "ui": {
+                "images": [{"filename": png_name, "subfolder": subfolder, "type": "output"}],
+                "3d": [{"filename": glb_name, "subfolder": subfolder, "type": "output"}],
+                "text": [url],
+            },
             "result": (str(destination / glb_name), url, report_text),
         }
 
@@ -176,11 +195,11 @@ class FarSceneryExportGLB(ArcExport):
             "segments": ("INT", {"default": 32, "min": 2, "max": 512}),
             "base_y": ("FLOAT", {"default": -26.0, "min": -100000.0, "max": 100000.0, "step": 1.0}),
             "mask_mode": ([COMFY_MASK, FOREGROUND_MASK],),
-        }}
+        }, "optional": cls.DOWNLOAD_INPUTS}
 
     DESCRIPTION = "Export a transparent PBR arc GLB, the RGBA PNG, and a manifest."
 
-    def export(self, image, mask, asset_id, radius, arc_degrees, segments, base_y, mask_mode):
+    def export(self, image, mask, asset_id, radius, arc_degrees, segments, base_y, mask_mode, workbench_url=""):
         if not (1 <= radius <= 100000 and 1 <= arc_degrees <= 179 and 2 <= segments <= 512):
             raise ValueError("Check radius, arc angle, and segment count.")
         if not math.isfinite(base_y) or abs(base_y) > 100000:
@@ -190,7 +209,9 @@ class FarSceneryExportGLB(ArcExport):
         left, top, right, bottom = visible_bounds(rgba[..., 3])
         window = (max(0, left - 10), max(0, top - 10), min(width, right + 10), min(height, bottom + 10))
         touches_edge = left == 0 or top == 0 or right == width or bottom == height
-        return self.write_export(encode_png(rgba), asset_id, radius, arc_degrees, segments, base_y, window, touches_edge)
+        return self.write_export(
+            encode_png(rgba), asset_id, radius, arc_degrees, segments, base_y, window, touches_edge, workbench_url
+        )
 
 
 class FarSceneryExportRingGLB(ArcExport):
@@ -200,11 +221,11 @@ class FarSceneryExportRingGLB(ArcExport):
             "image": ("IMAGE",),
             "mask": ("MASK",),
             "asset_id": ("STRING", {"default": "far-ring-01"}),
-        }}
+        }, "optional": cls.DOWNLOAD_INPUTS}
 
     DESCRIPTION = "以 500 m 半径、72° 弧段和固定 UV 导出完整透明画布。"
 
-    def export(self, image, mask, asset_id):
+    def export(self, image, mask, asset_id, workbench_url=""):
         rgba = read_rgba(image, mask, COMFY_MASK)
         width, height = RING_TEXTURE_SIZE
         if rgba.shape[:2] != (height, width):
@@ -212,7 +233,8 @@ class FarSceneryExportRingGLB(ArcExport):
         left, top, right, bottom = visible_bounds(rgba[..., 3])
         touches_edge = left == 0 or top == 0 or right == width or bottom == height
         return self.write_export(
-            encode_png(rgba), asset_id, RING_RADIUS, RING_ARC_DEGREES, RING_SEGMENTS, RING_BASE_Y, None, touches_edge
+            encode_png(rgba), asset_id, RING_RADIUS, RING_ARC_DEGREES, RING_SEGMENTS, RING_BASE_Y, None,
+            touches_edge, workbench_url
         )
 
 
