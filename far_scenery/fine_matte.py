@@ -13,6 +13,7 @@ from PIL import Image
 
 
 MODEL_FOLDER = "far_scenery_matting"
+MANAGED_VIT_NAMES = ("far_scenery_vitmatte_small.safetensors", "far_scenery_vitmatte_small")
 VIT_URL = "https://huggingface.co/hustvl/vitmatte-small-composition-1k/resolve/main/"
 FILES = (
     ("u2netp.onnx", "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
@@ -43,36 +44,97 @@ def file_digest(path):
     return digest.hexdigest()
 
 
+def managed_vit_candidates(directory):
+    """Read the exact Manager-downloaded name from standard configured model folders."""
+    model_root = directory.parent
+    roots = [model_root / "checkpoints", model_root / "checkpoint"]
+    found = []
+    try:
+        import folder_paths
+    except ImportError:
+        folder_paths = None
+    if folder_paths is not None:
+        model_root = Path(folder_paths.models_dir)
+        roots.extend((model_root / "checkpoints", model_root / "checkpoint"))
+        try:
+            roots.extend(Path(p) for p in folder_paths.get_folder_paths("checkpoints"))
+        except (AttributeError, KeyError):
+            pass
+        for name in MANAGED_VIT_NAMES:
+            try:
+                path = folder_paths.get_full_path("checkpoints", name)
+            except (AttributeError, KeyError):
+                path = None
+            if path:
+                found.append(Path(path))
+    found.extend(root / name for root in roots for name in MANAGED_VIT_NAMES)
+    if folder_paths is not None and not any(path.is_file() for path in found):
+        # Some managers register a named file in a subfolder rather than the root.
+        try:
+            for entry in folder_paths.get_filename_list("checkpoints"):
+                if Path(entry).name in MANAGED_VIT_NAMES:
+                    path = folder_paths.get_full_path("checkpoints", entry)
+                    if path:
+                        found.append(Path(path))
+        except (AttributeError, KeyError):
+            pass
+    return tuple(dict.fromkeys(path.resolve() for path in found if path.is_file()))
+
+
+def install_verified_stream(source, target, expected):
+    """Stage a verified model atomically; leave existing models untouched."""
+    temporary = None
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        digest = sha256()
+        with NamedTemporaryFile(dir=target.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(chunk)
+                stream.write(chunk)
+        if digest.hexdigest() != expected:
+            raise RuntimeError("模型文件 SHA-256 与预期不一致。")
+        if target.exists():
+            if not target.is_file() or file_digest(target) != expected:
+                raise RuntimeError(f"模型目标已存在且校验失败：{target}；不会自动覆盖。")
+        else:
+            temporary.replace(target)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def ensure_weights(directory):
-    """Download only fixed public model artifacts, never submit user input."""
+    """Reuse verified Manager weights before attempting a fixed public download."""
     for relative, url, expected in FILES:
         target = directory / relative
         if target.is_file():
             if file_digest(target) != expected:
                 raise RuntimeError(f"精细抠图模型校验不通过：{target}。请核对官方文件；不会自动覆盖现有模型。")
             continue
-        temporary = None
+        if relative == "vitmatte/model.safetensors":
+            candidates = managed_vit_candidates(directory)
+            if candidates:
+                valid = next((path for path in candidates if file_digest(path) == expected), None)
+                if valid is None:
+                    raise RuntimeError("Manager 下载的 far_scenery_vitmatte_small 校验失败：" +
+                                       ", ".join(str(p) for p in candidates) + "。请确认是官方 ViTMatte-Small 权重。")
+                with valid.open("rb") as source:
+                    install_verified_stream(source, target, expected)
+                print(f"[Far Scenery] 已使用 Manager 模型：{valid}", flush=True)
+                continue
         try:
-            target.parent.mkdir(parents=True, exist_ok=True)
             print(f"[Far Scenery] 下载精细抠图模型：{relative}", flush=True)
             request = Request(url, headers={"User-Agent": "FarSceneryMatting/1.0"})
-            with urlopen(request, timeout=120) as response, NamedTemporaryFile(dir=target.parent, delete=False) as stream:
-                temporary = Path(stream.name)
-                digest = sha256()
-                for chunk in iter(lambda: response.read(1024 * 1024), b""):
-                    digest.update(chunk)
-                    stream.write(chunk)
-            if digest.hexdigest() != expected:
-                raise RuntimeError("下载文件 SHA-256 与预期不一致。")
-            temporary.replace(target)
+            with urlopen(request, timeout=120) as response:
+                install_verified_stream(response, target, expected)
         except Exception as exc:
+            manager_help = (" 或使用 Manager 的 checkpoint 类别下载，名称填 far_scenery_vitmatte_small（不含后缀）。"
+                            if relative == "vitmatte/model.safetensors" else "")
             raise RuntimeError(
                 f"精细抠图缺少模型：{relative}。自动下载失败。请从 {url} 下载到 {target}，"
-                "保持目录结构后重试（平台若限制外网，需要管理员配置模型）。"
+                "保持目录结构后重试（平台若限制外网，需要管理员配置模型）。" + manager_help
             ) from exc
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
 
 
 @lru_cache(maxsize=1)

@@ -26,6 +26,8 @@
 | `vitmatte/config.json` | [模型配置](https://huggingface.co/hustvl/vitmatte-small-composition-1k/resolve/main/config.json) |
 | `vitmatte/preprocessor_config.json` | [预处理配置](https://huggingface.co/hustvl/vitmatte-small-composition-1k/resolve/main/preprocessor_config.json) |
 
+**ByteArtist 模型下载备用方式：** 如果自动下载 ViTMatte 权重失败，在 Manager → 通过URL链接下载 → 模型下载，类别选择 `checkpoint`，URL 填上表 ViTMatte-Small 权重地址，自定义名称填 `far_scenery_vitmatte_small`（不带后缀）。下载完成后使用最新版 `far-scenery-pbr` 插件。节点会在 ComfyUI 已配置的 checkpoints 位置查找该确切名称（兼容有或无 `.safetensors` 后缀），校验并复制到专用模型目录；不会覆盖或删除 Manager 原文件，也不需要再次联网下载这份权重。这个分类仅用作存储，ViTMatte 不需要连接 Checkpoint Loader。
+
 这是针对完整、连续的近白底横向山体素材的方案，不适用于任意带天空、背景复杂的场景图。先单路验证再复制五路，尤其需要检查白雪和浅雾是否被完整保留。可导入 [精细抠图工作流](workflows/fine_matte_to_glb.json) 做单路测试。
 
 白底 RGB 图可以接 **远景白底转透明（FarSceneryWhiteMatte）**。节点从图像外边缘估计实际白底，并把靠近底色、与画面外缘连通的区域转成灰阶遮罩。同时去除半透明边缘混入的底色。它会保留被较深岩色包围的浅色细节。

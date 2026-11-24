@@ -9,10 +9,13 @@ from io import BytesIO
 import json
 import os
 from pathlib import Path
+import shutil
 import struct
 import sys
 import tempfile
 import unittest
+from hashlib import sha256
+from unittest.mock import patch
 
 import numpy as np
 from PIL import Image
@@ -42,6 +45,35 @@ class TestFineMatte(unittest.TestCase):
                 matting.ensure_weights(Path(tmp))
             self.assertEqual(path.read_bytes(), b"not a model")
 
+    def test_manager_model_filename_with_or_without_extension(self):
+        payload = b"test-verified-weight"
+        expected = sha256(payload).hexdigest()
+        files = (("vitmatte/model.safetensors", "https://example.invalid/model.safetensors", expected),)
+        for name in matting.MANAGED_VIT_NAMES:
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                directory = root / matting.MODEL_FOLDER
+                original = root / "checkpoints" / name
+                original.parent.mkdir()
+                original.write_bytes(payload)
+                with patch.object(matting, "FILES", files), patch.object(matting, "urlopen", side_effect=AssertionError("network not allowed")):
+                    matting.ensure_weights(directory)
+                self.assertEqual((directory / "vitmatte/model.safetensors").read_bytes(), payload)
+                self.assertEqual(original.read_bytes(), payload)
+
+    def test_manager_wrong_file_not_loaded(self):
+        expected = sha256(b"valid weight").hexdigest()
+        files = (("vitmatte/model.safetensors", "https://example.invalid/model.safetensors", expected),)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            checkpoint = root / "checkpoints" / matting.MANAGED_VIT_NAMES[0]
+            checkpoint.parent.mkdir()
+            checkpoint.write_bytes(b"bad weight")
+            with patch.object(matting, "FILES", files), patch.object(matting, "urlopen", side_effect=AssertionError("network not allowed")):
+                with self.assertRaisesRegex(RuntimeError, "Manager 下载的.*校验失败"):
+                    matting.ensure_weights(root / matting.MODEL_FOLDER)
+            self.assertFalse((root / matting.MODEL_FOLDER / "vitmatte/model.safetensors").exists())
+
     def test_workflow_ports(self):
         workflow = json.loads((plugin_dir / "workflows" / "fine_matte_to_glb.json").read_text())
         nodes = {node["id"]: node for node in workflow["nodes"]}
@@ -61,12 +93,23 @@ class TestFineMatte(unittest.TestCase):
         torch.set_num_threads(4)
         original = Image.open(image_path).convert("RGB")
         x = torch.from_numpy(np.asarray(original, dtype=np.float32)[None] / 255)
-        image, mask, preview = plugin.FarSceneryFineMatte().matte(x)
+        # Simulate ByteArtist after Manager download: the ViTMatte weight is in checkpoints only.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        cached = root / matting.MODEL_FOLDER
+        for relative, _, _ in matting.FILES:
+            target = root / "checkpoints" / matting.MANAGED_VIT_NAMES[0] if relative == "vitmatte/model.safetensors" else cached / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(Path(directory) / relative, target)
+        with patch.dict(os.environ, {"FAR_SCENERY_MATTE_MODEL_DIR": str(cached)}), patch.object(matting, "urlopen", side_effect=AssertionError("network not allowed")):
+            image, mask, preview = plugin.FarSceneryFineMatte().matte(x)
+        self.assertTrue((cached / "vitmatte/model.safetensors").is_file())
         self.assertEqual(tuple(image.shape[:3]), tuple(mask.shape))
         self.assertEqual(image.shape[-1], 3)
         self.assertTrue(bool((mask == 0).any() and (mask == 1).any() and ((mask > 0) & (mask < 1)).any()))
         self.assertEqual(preview.shape[-1], 3)
-        self.assertIs(matting.get_models(Path(directory)), matting.get_models(Path(directory)))
+        self.assertIs(matting.get_models(cached), matting.get_models(cached))
         fitted, fitted_mask = plugin.FarSceneryFitTexture().fit(image, mask, 90, 50, 600, plugin.COMFY_MASK, 0)
         rgba = plugin.read_rgba(fitted, fitted_mask, plugin.COMFY_MASK)
         self.assertEqual(rgba.shape, (640, 2048, 4))
