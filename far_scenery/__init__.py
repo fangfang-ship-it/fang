@@ -86,15 +86,55 @@ def resolve_download_url(workbench_url, relative_url):
     return f"{parts.scheme}://{parts.netloc}{relative_url}"
 
 
+def _smooth_foot_profile(values, sigma):
+    """Smooth a 1D contour, without wrapping or mixing separate mountain spans."""
+    radius = max(1, math.ceil(3 * sigma))
+    offsets = np.arange(-radius, radius + 1, dtype=np.float32)
+    kernel = np.exp(-0.5 * (offsets / sigma) ** 2)
+    kernel /= kernel.sum()
+    values = np.asarray(values, dtype=np.float32)
+    return np.convolve(np.pad(values, (radius, radius), mode="edge"), kernel, mode="valid")
+
+
 def fade_foot(alpha, pixels):
-    visible = alpha >= 13 / 255
+    """Apply a continuous lower-edge fade to the existing alpha, without blurring RGB or the skyline."""
+    if pixels <= 0:
+        return
+    threshold = 13 / 255
+    visible = alpha >= threshold
+    active = visible.any(axis=0)
+    if not active.any():
+        return
+    height, width = alpha.shape
+    cols = np.arange(width)
     first = visible.argmax(axis=0)
-    last = alpha.shape[0] - 1 - visible[::-1].argmax(axis=0)
-    # Keep the fade within the lowest quarter of thin foothills.
-    band = np.minimum(pixels, (last - first + 1) // 4)
-    active = visible.any(axis=0) & (band > 0)
-    rows = np.arange(alpha.shape[0], dtype=np.float32)[:, None]
-    ramp = np.clip((last - rows) / np.maximum(1, band), 0.0, 1.0)
+    last = height - 1 - visible[::-1].argmax(axis=0)
+
+    # Estimate the 5%-opacity crossing at subpixel precision. Integer last/first
+    # indices previously made adjacent columns choose different fade heights/bands.
+    top_value = alpha[first, cols]
+    prev_value = np.where(first > 0, alpha[np.maximum(first - 1, 0), cols], 0)
+    bottom_value = alpha[last, cols]
+    next_value = np.where(last < height - 1, alpha[np.minimum(last + 1, height - 1), cols], 0)
+    top = first - np.clip((top_value - threshold) / np.maximum(top_value - prev_value, 1e-6), 0, 1)
+    bottom = last + np.clip((bottom_value - threshold) / np.maximum(bottom_value - next_value, 1e-6), 0, 1)
+
+    # Build two smooth curves (foot elevation, fade-band thickness), independently
+    # for every contiguous visible span. Avoid discontinuities from integer division.
+    transitions = np.flatnonzero(np.diff(np.pad(active.astype(np.int8), (1, 1))))
+    sigma = min(18.0, max(4.0, float(pixels) * .35))
+    smooth_bottom = np.zeros(width, dtype=np.float32)
+    smooth_band = np.ones(width, dtype=np.float32)
+    for start, end in transitions.reshape(-1, 2):
+        span = slice(start, end)
+        smooth_bottom[span] = _smooth_foot_profile(bottom[span], sigma)
+        local_height = _smooth_foot_profile(np.maximum(bottom[span] - top[span], 1), sigma)
+        # Thin foothills still get a proportional fade, but with a floating-point
+        # width that changes continuously along the horizontal direction.
+        smooth_band[span] = np.clip(local_height * .25, 1.0, float(pixels))
+
+    rows = np.arange(height, dtype=np.float32)[:, None]
+    ramp = np.clip((smooth_bottom - rows) / smooth_band, 0.0, 1.0)
     np.multiply(alpha, ramp * ramp * (3.0 - 2.0 * ramp), out=alpha, where=active)
 
 
@@ -110,7 +150,7 @@ class FarSceneryFitTexture:
             "mask_mode": ([COMFY_MASK, FOREGROUND_MASK],),
         }, "optional": {
             "foot_fade_px": ("INT", {"default": 0, "min": 0, "max": 80, "step": 1,
-                                    "tooltip": "在 2048 × 640 贴图上沿山脚向上渐隐。先试 24 px，0 为原始遮罩。"}),
+                                    "tooltip": "沿连续平滑的山脚曲线向上渐隐（2048 × 640 贴图像素）。先试 24 px，0 保留原始遮罩。"}),
         }}
 
     RETURN_TYPES = ("IMAGE", "MASK")
