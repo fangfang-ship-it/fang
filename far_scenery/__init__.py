@@ -14,6 +14,7 @@ from PIL import Image
 
 from .glb import build_glb
 from .matte import FarSceneryWhiteMatte
+from .fine_matte import FarSceneryFineMatte
 
 
 WEB_DIRECTORY = "./web"
@@ -338,6 +339,7 @@ class FarSceneryPlanItem:
 
 
 NODE_CLASS_MAPPINGS = {
+    "FarSceneryFineMatte": FarSceneryFineMatte,
     "FarSceneryWhiteMatte": FarSceneryWhiteMatte,
     "FarSceneryFitTexture": FarSceneryFitTexture,
     "FarSceneryExportRingGLB": FarSceneryExportRingGLB,
@@ -346,6 +348,7 @@ NODE_CLASS_MAPPINGS = {
     "FarSceneryPlanItem": FarSceneryPlanItem,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "FarSceneryFineMatte": "Far Scenery Fine Matte / 远景精细抠图",
     "FarSceneryWhiteMatte": "Far Scenery White Matte / 远景白底转透明",
     "FarSceneryFitTexture": "Far Scenery Fit Texture / 远景贴图适配",
     "FarSceneryExportRingGLB": "Far Scenery Export Ring GLB / 远景固定模板 GLB",

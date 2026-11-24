@@ -87,3 +87,7 @@ Load Image（加载图像） → Sky Bottom Stretch 2:1 → Save Image（保存�
 - https://docs.comfy.org/custom-nodes/walkthrough
 - https://docs.comfy.org/custom-nodes/backend/datatypes
 
+
+## 远景精细抠图（far-scenery-pbr 分支）
+
+新增 `FarSceneryFineMatte / 远景精细抠图`：U²-Netp 主体分割 + ViTMatte 精细透明度。详见[安装、模型依赖及接线说明](far_scenery/README.md#处理白底生图)。旧的天空和远景节点保持不变。

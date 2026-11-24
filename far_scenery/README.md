@@ -15,6 +15,19 @@
 
 ### 处理白底生图
 
+**推荐：远景精细抠图（FarSceneryFineMatte）**。用 U²-Netp 识别山体，自动生成三分遮罩，ViTMatte-Small 精修山脊和山脚的连续透明度，最后去白边。输入只需一张白底 `image`，输出 `image`、`mask`、`preview`；前两项直接连到远景贴图适配，`mask_mode` 保持 `ComfyUI mask (white = transparent)`、`foot_fade_px=0`。`preview` 接预览图像。旧色差节点仍可使用，不会被自动替换。
+
+首次运行自动从官方公开来源下载并校验约 108 MB 模型文件，保存在 `ComfyUI/models/far_scenery_matting/`，同一进程的五路复用模型；CPU 推理，不需要额外 GPU，也不上传输入图。插件安装需要 `requirements.txt` 中的依赖；不强制安装或升级 PyTorch。平台不能联网时，由管理员按以下目录预置模型，或通过环境变量 `FAR_SCENERY_MATTE_MODEL_DIR` 指定该目录（文件内容须与官方权重一致）：
+
+| 相对模型目录的文件 | 官方下载 |
+| --- | --- |
+| `u2netp.onnx` | [U²-Netp](https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx) |
+| `vitmatte/model.safetensors` | [ViTMatte-Small](https://huggingface.co/hustvl/vitmatte-small-composition-1k/resolve/main/model.safetensors) |
+| `vitmatte/config.json` | [模型配置](https://huggingface.co/hustvl/vitmatte-small-composition-1k/resolve/main/config.json) |
+| `vitmatte/preprocessor_config.json` | [预处理配置](https://huggingface.co/hustvl/vitmatte-small-composition-1k/resolve/main/preprocessor_config.json) |
+
+这是针对完整、连续的近白底横向山体素材的方案，不适用于任意带天空、背景复杂的场景图。先单路验证再复制五路，尤其需要检查白雪和浅雾是否被完整保留。可导入 [精细抠图工作流](workflows/fine_matte_to_glb.json) 做单路测试。
+
 白底 RGB 图可以接 **远景白底转透明（FarSceneryWhiteMatte）**。节点从图像外边缘估计实际白底，并把靠近底色、与画面外缘连通的区域转成灰阶遮罩。同时去除半透明边缘混入的底色。它会保留被较深岩色包围的浅色细节。
 
 把该节点的 `image` 和 `mask` 接到 **远景贴图适配** 的同名输入，`mask_mode` 选 `ComfyUI mask (white = transparent)`。先用默认的 `background_tolerance=8`、`opaque_distance=56` 试一张。前者控制要清到全透明的近白范围，后者控制颜色差多大时恢复全不透明。两者之间保留渐变。用深灰底检查山脚和白边，再接五路。适配节点的 `foot_fade_px` 可保持 0，使用生图中的山脚渐变。
