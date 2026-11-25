@@ -29,6 +29,12 @@ def build_glb(png, radius, angle, segments, base_y, window, name, *, yaw_degrees
         raise ValueError("The UV window must lie inside the texture.")
     span = math.radians(angle)
     height = radius * span * (bottom - top) / (right - left)
+    yaw_offset = 0.0
+    if yaw_degrees is not None:
+        if not math.isfinite(yaw_degrees):
+            raise ValueError("Yaw must be a finite number of degrees. / 旋转角须为有限数值。")
+        # Increasing theta turns toward +X, opposite positive glTF Y rotation.
+        yaw_offset = -math.radians(yaw_degrees % 360)
 
     positions = []
     normals = []
@@ -36,7 +42,7 @@ def build_glb(png, radius, angle, segments, base_y, window, name, *, yaw_degrees
     indices = []
     for column in range(segments + 1):
         t = column / segments
-        theta = (t - 0.5) * span
+        theta = (t - 0.5) * span + yaw_offset
         x = radius * math.sin(theta)
         z = -radius * math.cos(theta)
         u = (left + t * (right - left)) / texture_width
@@ -84,13 +90,12 @@ def build_glb(png, radius, angle, segments, base_y, window, name, *, yaw_degrees
     }
     node = {"name": name, "mesh": 0, "extras": metadata}
     if yaw_degrees is not None:
-        if not math.isfinite(yaw_degrees):
-            raise ValueError("Yaw must be a finite number of degrees. / 旋转角须为有限数值。")
-        half_yaw = math.radians(yaw_degrees % 360) / 2
         origin = [0.0, 0.0, 0.0]
         node["translation"] = origin
-        node["rotation"] = [0.0, math.sin(half_yaw), 0.0, math.cos(half_yaw)]
-        metadata.update({"originMeters": origin, "yawDegrees": float(yaw_degrees)})
+        node["rotation"] = [0.0, 0.0, 0.0, 1.0]
+        metadata.update({
+            "originMeters": origin, "yawDegrees": float(yaw_degrees), "yawBakedIntoMesh": True,
+        })
     gltf = {
         "asset": {"version": "2.0", "generator": "ComfyUI-FarScenery"},
         "scene": 0,

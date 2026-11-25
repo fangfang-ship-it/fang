@@ -1,6 +1,7 @@
 """Check the fixed-template export and the join between all five rotations."""
 import importlib.util
 import json
+import math
 from pathlib import Path
 import struct
 import sys
@@ -26,7 +27,7 @@ class TestRingYaw(unittest.TestCase):
         image[400:600, 100:1948] = (158, 108, 80, 255)
         exporter = plugin.FarSceneryExportRingGLB()
         angles = (0, 72, 144, 216, 288)
-        world_positions = []
+        sector_positions = []
         with tempfile.TemporaryDirectory() as output, \
                 patch.dict(sys.modules, {"folder_paths": SimpleNamespace(get_output_directory=lambda: output)}), \
                 patch.object(plugin, "read_rgba", return_value=image):
@@ -40,25 +41,27 @@ class TestRingYaw(unittest.TestCase):
                     self.assertEqual(geometry["radiusMeters"], 500)
                     self.assertEqual(geometry["spanDegrees"], 72)
                     self.assertEqual(geometry["yawDegrees"], yaw)
+                    self.assertTrue(geometry["yawBakedIntoMesh"])
 
                     glb = Path(filename).read_bytes()
                     json_size = struct.unpack_from("<I", glb, 12)[0]
                     gltf = json.loads(glb[20:20 + json_size])
                     node = gltf["nodes"][0]
                     self.assertEqual(node["translation"], [0, 0, 0])
-                    self.assertAlmostEqual(np.linalg.norm(node["rotation"]), 1)
-                    direction = np.array(node["rotation"][:3])
-                    scalar = node["rotation"][3]
+                    self.assertEqual(node["rotation"], [0, 0, 0, 1])
                     view = gltf["bufferViews"][0]
                     start = 28 + json_size + view["byteOffset"]
                     positions = np.frombuffer(glb, dtype="<f4", count=view["byteLength"] // 4,
                                               offset=start).reshape(-1, 3)
-                    cross = np.cross(direction, positions)
-                    world = positions + 2 * (scalar * cross + np.cross(direction, cross))
-                    np.testing.assert_allclose(np.linalg.norm(world[:, [0, 2]], axis=1), 500, atol=.001)
-                    world_positions.append(world)
+                    np.testing.assert_allclose(np.linalg.norm(positions[:, [0, 2]], axis=1), 500, atol=.001)
+                    middle = positions[len(positions) // 2]
+                    angle = math.radians(yaw)
+                    np.testing.assert_allclose(
+                        middle[[0, 2]], [-500 * math.sin(angle), -500 * math.cos(angle)], atol=.001
+                    )
+                    sector_positions.append(positions)
 
-            for current, following in zip(world_positions, world_positions[1:] + world_positions[:1]):
+            for current, following in zip(sector_positions, sector_positions[1:] + sector_positions[:1]):
                 np.testing.assert_allclose(current[:2], following[-2:], atol=.001)
 
 

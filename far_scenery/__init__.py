@@ -287,11 +287,11 @@ class FarSceneryExportRingGLB(ArcExport):
             **cls.DOWNLOAD_INPUTS,
             "yaw_degrees": ("FLOAT", {
                 "default": 0.0, "min": -360.0, "max": 360.0, "step": 0.1,
-                "tooltip": "绕 GLB 原点的 Y 轴旋转角（度）。五片整圈可填 0、72、144、216、288。",
+                "tooltip": "写入网格的方位角（度），绕 GLB 原点的 Y 轴旋转。五片可填 0、72、144、216、288。",
             }),
         }}
 
-    DESCRIPTION = "以 500 m 半径和 72° 弧段导出，可绕 (0, 0, 0) 的竖直 Y 轴旋转。"
+    DESCRIPTION = "以 500 m 半径和 72° 弧段导出，并将绕原点 Y 轴的方位角写入网格。"
 
     def export(self, image, mask, asset_id, workbench_url="", yaw_degrees=0.0):
         rgba = read_rgba(image, mask, COMFY_MASK)
