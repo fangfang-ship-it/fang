@@ -19,6 +19,12 @@
 
 整圈是一个模型，内含五段原始网格和五张透明贴图。导入后可整体放置一次，五片共用同一个圆心。五路须来自同一版固定模板，方位角各不相同。
 
+### 处理绿底生图
+
+用 **远景绿幕色度抠图（FarSceneryGreenKey）** 接生图节点的原图。算法从四周留边采样实测绿底，在树枝和坡脚保留连续透明度，并修正半透明像素混入的绿色。节点在 CPU 上运行，使用现有插件依赖。
+
+将 `image`、`mask` 直接接到 **远景贴图适配**，遮罩模式用 `ComfyUI mask (white = transparent)`。首轮沿用默认 `background_tolerance=12`、`despill_strength=1`，贴图适配先设 `foot_fade_px=0`，用 `preview` 在深灰底检查枝条和素材本身的底部渐变。背景有残点时小幅调高容差，细枝丢失时调低容差。
+
 ### 处理白底生图
 
 **推荐：远景精细抠图（FarSceneryFineMatte）**。用 U²-Netp 识别山体，自动生成三分遮罩，ViTMatte-Small 精修山脊和山脚的连续透明度，最后去白边。输入只需一张白底 `image`，输出 `image`、`mask`、`preview`；前两项直接连到远景贴图适配，`mask_mode` 保持 `ComfyUI mask (white = transparent)`、`foot_fade_px=0`。`preview` 接预览图像。旧色差节点仍可使用，不会被自动替换。

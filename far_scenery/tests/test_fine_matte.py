@@ -37,6 +37,22 @@ class TestFineMatte(unittest.TestCase):
         self.assertEqual(cls.RETURN_NAMES, ("image", "mask", "preview"))
         self.assertIn("FarSceneryWhiteMatte", plugin.NODE_CLASS_MAPPINGS)
 
+    def test_green_key_handles_off_color_screen_and_soft_edges(self):
+        import torch
+
+        screen = np.array([2, 239, 35], dtype=np.float32) / 255
+        subject = np.array([89, 85, 92], dtype=np.float32) / 255
+        frame = np.broadcast_to(screen, (8, 16, 3)).copy()
+        frame[2:6, 3:13] = subject
+        frame[6, 3:13] = (subject + screen) / 2
+        frame[0, 3] += np.array([0, -3, 2], dtype=np.float32) / 255
+        keyer = plugin.NODE_CLASS_MAPPINGS["FarSceneryGreenKey"]()
+        rgb, mask, _ = keyer.key(torch.from_numpy(frame[None]), 12, 1.0)
+        self.assertEqual(float(mask[0, 0, 3]), 1)
+        self.assertEqual(float(mask[0, 3, 5]), 0)
+        self.assertAlmostEqual(float(mask[0, 6, 5]), 0.5, delta=0.04)
+        np.testing.assert_allclose(rgb[0, 6, 5].numpy(), subject, atol=0.04)
+
     def test_wrong_weight_not_overwritten(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "u2netp.onnx"

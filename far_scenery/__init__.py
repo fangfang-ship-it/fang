@@ -13,7 +13,7 @@ import numpy as np
 from PIL import Image
 
 from .glb import build_glb, merge_ring_glbs
-from .matte import FarSceneryWhiteMatte
+from .matte import FarSceneryGreenKey, FarSceneryWhiteMatte
 from .fine_matte import FarSceneryFineMatte
 
 
@@ -423,6 +423,7 @@ class FarSceneryPlanItem:
 
 
 NODE_CLASS_MAPPINGS = {
+    "FarSceneryGreenKey": FarSceneryGreenKey,
     "FarSceneryFineMatte": FarSceneryFineMatte,
     "FarSceneryWhiteMatte": FarSceneryWhiteMatte,
     "FarSceneryFitTexture": FarSceneryFitTexture,
@@ -433,6 +434,7 @@ NODE_CLASS_MAPPINGS = {
     "FarSceneryPlanItem": FarSceneryPlanItem,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "FarSceneryGreenKey": "Far Scenery Green Key / 远景绿幕色度抠图",
     "FarSceneryFineMatte": "Far Scenery Fine Matte / 远景精细抠图",
     "FarSceneryWhiteMatte": "Far Scenery White Matte / 远景白底转透明",
     "FarSceneryFitTexture": "Far Scenery Fit Texture / 远景贴图适配",

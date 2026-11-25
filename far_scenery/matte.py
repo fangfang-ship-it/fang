@@ -1,7 +1,23 @@
-"""Recover a soft matte from terrain rendered over a near-white background."""
+"""Recover soft mattes from terrain rendered over white or green backgrounds."""
 
 import numpy as np
 from PIL import Image, ImageDraw
+
+
+def matte_outputs(clean_rgb, alpha):
+    import torch
+
+    # A dark composite shows both faint opacity and color spill in the preview.
+    background = np.array([35, 42, 52], dtype=np.float32) / 255.0
+    opacity = alpha[..., None]
+    composite = clean_rgb * opacity + background * (1.0 - opacity)
+    preview = Image.fromarray(np.rint(composite * 255).astype(np.uint8))
+    preview.thumbnail((960, 960), Image.Resampling.LANCZOS)
+    return (
+        torch.from_numpy(clean_rgb[None]),
+        torch.from_numpy(1.0 - alpha[None]),
+        torch.from_numpy(np.asarray(preview, dtype=np.float32)[None] / 255.0),
+    )
 
 
 class FarSceneryWhiteMatte:
@@ -22,8 +38,6 @@ class FarSceneryWhiteMatte:
     DESCRIPTION = "从近白背景提取软遮罩，同时去除边缘混入的底色。MASK 白色表示透明。"
 
     def key(self, image, background_tolerance, opaque_distance):
-        import torch
-
         batch = image.detach().float().cpu().numpy()
         if batch.ndim != 4 or batch.shape[0] != 1 or batch.shape[-1] != 3 or min(batch.shape[1:3]) < 2:
             raise ValueError("白底转透明需要一张 RGB 图。")
@@ -58,13 +72,54 @@ class FarSceneryWhiteMatte:
         np.clip(clean_rgb, 0.0, 1.0, out=clean_rgb)
         clean_rgb[alpha == 0.0] = background
 
-        # Composite the RGB and Alpha for workbenches that display image outputs as JPEG.
-        preview_background = np.array([35, 42, 52], dtype=np.float32) / 255.0
-        preview_rgb = clean_rgb * opacity + preview_background * (1.0 - opacity)
-        preview = Image.fromarray(np.rint(preview_rgb * 255).astype(np.uint8))
-        preview.thumbnail((960, 960), Image.Resampling.LANCZOS)
-        return (
-            torch.from_numpy(clean_rgb[None]),
-            torch.from_numpy(1.0 - alpha[None]),
-            torch.from_numpy(np.asarray(preview, dtype=np.float32)[None] / 255.0),
-        )
+        return matte_outputs(clean_rgb, alpha)
+
+
+class FarSceneryGreenKey:
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            "image": ("IMAGE",),
+            "background_tolerance": ("INT", {"default": 12, "min": 0, "max": 64,
+                                              "tooltip": "越大越容易去掉背景起伏，也会减弱极淡的枝条和坡脚。"}),
+            "despill_strength": ("FLOAT", {"default": 1.0, "min": 0.0, "max": 1.0, "step": 0.05,
+                                           "tooltip": "控制半透明边缘的去绿强度。"}),
+        }}
+
+    RETURN_TYPES = ("IMAGE", "MASK", "IMAGE")
+    RETURN_NAMES = ("image", "mask", "preview")
+    FUNCTION = "key"
+    CATEGORY = "Far Scenery"
+    DESCRIPTION = "自动从图像边缘取绿底，生成软遮罩并去绿边。MASK 白色表示透明。"
+
+    def key(self, image, background_tolerance, despill_strength):
+        batch = image.detach().float().cpu().numpy()
+        if batch.ndim != 4 or batch.shape[0] != 1 or batch.shape[-1] != 3 or min(batch.shape[1:3]) < 2:
+            raise ValueError("绿幕色度抠图需要一张 RGB 图。")
+        if not np.isfinite(batch).all():
+            raise ValueError("输入图像含无效像素。")
+        if not (0 <= background_tolerance <= 64 and 0.0 <= despill_strength <= 1.0):
+            raise ValueError("请检查背景容差和去绿强度。")
+
+        rgb = np.clip(batch[0], 0.0, 1.0)
+        border = np.concatenate((rgb[0], rgb[-1], rgb[:, 0], rgb[:, -1]))
+        screen = np.median(border, axis=0)
+        screen_chroma = screen[1] - (screen[0] + screen[2]) * 0.5
+        if screen_chroma < 0.30:
+            raise ValueError("图像边缘需要留出高饱和绿底供取样。")
+
+        # The green channel's excess over red/blue drops continuously in mixed pixels.
+        chroma = rgb[..., 1] - (rgb[..., 0] + rgb[..., 2]) * 0.5
+        tolerance = background_tolerance / 255.0
+        alpha = np.clip((screen_chroma - chroma - tolerance) / (screen_chroma - tolerance), 0.0, 1.0)
+        if alpha.min() >= 0.05 or alpha.max() < 0.5:
+            raise ValueError("遮罩需要同时包含绿底和可见主体，请检查输入图。")
+
+        # Recover straight RGB while limiting noise amplification in near-clear pixels.
+        foreground = screen + (rgb - screen) / np.maximum(alpha[..., None], 0.08)
+        np.clip(foreground, 0.0, 1.0, out=foreground)
+        green_limit = np.maximum(foreground[..., 0], foreground[..., 2])
+        excess_green = np.maximum(foreground[..., 1] - green_limit, 0.0)
+        foreground[..., 1] -= despill_strength * excess_green * (alpha < 1.0)
+        foreground[alpha == 0.0] = 0.0
+        return matte_outputs(foreground, alpha)
