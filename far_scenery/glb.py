@@ -120,10 +120,99 @@ def build_glb(png, radius, angle, segments, base_y, window, name, *, yaw_degrees
         "buffers": [{"byteLength": len(data)}],
         "bufferViews": views,
     }
+    return pack_glb(gltf, data), metadata
+
+
+def pack_glb(gltf, data):
     description = json.dumps(gltf, separators=(",", ":")).encode()
     description += b" " * (-len(description) % 4)
     return b"".join((
         struct.pack("<4sII", b"glTF", 2, 28 + len(description) + len(data)),
         struct.pack("<I4s", len(description), b"JSON"), description,
         struct.pack("<I4s", len(data), b"BIN\x00"), data,
-    )), metadata
+    ))
+
+
+def read_ring_glb(glb):
+    magic, version, length, json_length, json_type = struct.unpack_from("<4sIII4s", glb)
+    binary_offset = 20 + json_length
+    binary_length, binary_type = struct.unpack_from("<I4s", glb, binary_offset)
+    if (magic, version, length, json_type, binary_type) != (b"glTF", 2, len(glb), b"JSON", b"BIN\x00"):
+        raise ValueError("GLB 文件头无效。")
+    if json_length % 4 or binary_length % 4 or binary_offset + 8 + binary_length != length:
+        raise ValueError("GLB 数据块长度无效。")
+    gltf = json.loads(glb[20:binary_offset])
+    node, = gltf["nodes"]
+    if (
+        gltf["asset"]["generator"] != "ComfyUI-FarScenery"
+        or node["translation"] != [0, 0, 0]
+        or node["rotation"] != [0, 0, 0, 1]
+        or not node.get("extras", {}).get("yawBakedIntoMesh")
+    ):
+        raise ValueError("请用最新版「远景固定模板 GLB」重新导出。")
+    return gltf, glb[binary_offset + 8:], node["extras"]
+
+
+def merge_ring_glbs(glbs, name):
+    """Join fixed-template assets as five primitives of one mesh."""
+    if len(glbs) != 5:
+        raise ValueError("请连接五路远景 GLB。")
+    keys = ("radiusMeters", "spanDegrees", "segments", "baseMeters", "heightMeters", "textureSize", "textureWindow")
+    primitives = []
+    merged = {key: [] for key in ("bufferViews", "accessors", "materials", "textures", "images", "samplers")}
+    data = bytearray()
+    angles = []
+    template = None
+
+    for index, glb in enumerate(glbs, 1):
+        try:
+            source, binary, geometry = read_ring_glb(glb)
+            settings = {key: geometry[key] for key in keys}
+            if template is not None and settings != template:
+                raise ValueError("五片须使用同一版固定模板。")
+            template = settings
+            yaw = geometry["yawDegrees"]
+            if not math.isfinite(yaw):
+                raise ValueError("方位角须为有限数值。")
+            if any(other % 360 == yaw % 360 for other in angles):
+                raise ValueError("方向重复，请核对连线和 yaw_degrees。")
+            angles.append(yaw)
+
+            offsets = {key: len(merged[key]) for key in merged}
+            for view in source["bufferViews"]:
+                view["byteOffset"] = view.get("byteOffset", 0) + len(data)
+            data.extend(binary)
+            for accessor in source["accessors"]:
+                accessor["bufferView"] += offsets["bufferViews"]
+            for image in source["images"]:
+                image["bufferView"] += offsets["bufferViews"]
+            for texture in source["textures"]:
+                texture["source"] += offsets["images"]
+                texture["sampler"] += offsets["samplers"]
+            for material in source["materials"]:
+                material["pbrMetallicRoughness"]["baseColorTexture"]["index"] += offsets["textures"]
+            for key in merged:
+                merged[key].extend(source[key])
+
+            primitive, = source["meshes"][source["nodes"][0]["mesh"]]["primitives"]
+            primitive["attributes"] = {
+                key: value + offsets["accessors"] for key, value in primitive["attributes"].items()
+            }
+            primitive["indices"] += offsets["accessors"]
+            primitive["material"] += offsets["materials"]
+            primitives.append(primitive)
+        except (KeyError, IndexError, TypeError, struct.error, ValueError) as error:
+            detail = error if type(error) is ValueError else "GLB 内容无效，请重新导出。"
+            raise ValueError(f"第 {index} 路 GLB：{detail}") from error
+
+    geometry = {**template, "originMeters": [0, 0, 0], "pieceCount": len(angles), "yawAnglesDegrees": angles}
+    gltf = {
+        "asset": {"version": "2.0", "generator": "ComfyUI-FarScenery"},
+        "scene": 0,
+        "scenes": [{"nodes": [0]}],
+        "nodes": [{"name": name, "mesh": 0, "translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "extras": geometry}],
+        "meshes": [{"name": name, "primitives": primitives}],
+        "buffers": [{"byteLength": len(data)}],
+        **merged,
+    }
+    return pack_glb(gltf, data), geometry

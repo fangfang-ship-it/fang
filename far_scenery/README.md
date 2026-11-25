@@ -13,6 +13,12 @@
 - 固定模板使用 **2048 × 512** 整张画布、**500 m** 半径、**80°** 弧段、**40 段**、约 **698.13 m** 展开宽和约 **174.53 m** 高。五片共用圆心和 UV。
 - 五路各用一个 **远景固定模板 GLB** 节点，`asset_id` 分别填 `far-ring-01` 至 `far-ring-05`，`yaw_degrees` 依次填 `0、72、144、216、288`。相邻弧面重叠 **8°**。角度直接写入网格顶点和法线，GLB 根节点的位置和旋转都为零。导入造世界编辑器 3 后，将五片的位置对齐到同一个地形中心，旋转保持为零，缩放保留各片导入时的数值。若沿用旧测试将面片底沿放在地面上的摆法，新模板五片共用 `X=0、Y=8.18、Z=0`。
 
+### 把五片合成一个 GLB
+
+添加 **五片合并 GLB（FarSceneryMergeRingGLB）**，将五个 **远景固定模板 GLB** 的 `glb_path` 分别接入 `glb_path_1` 至 `glb_path_5`。`asset_id` 默认是 `far-ring-full`。在 ByteArtist 填入和单片导出节点相同的 `workbench_url`，运行后用合并节点的 `download_url` 下载整圈文件。若工作台用文本预览展示下载链接，将合并节点的 `download_url` 接到文本预览。
+
+整圈是一个模型，内含五段原始网格和五张透明贴图。导入后可整体放置一次，五片共用同一个圆心。五路须来自同一版固定模板，方位角各不相同。
+
 ### 处理白底生图
 
 **推荐：远景精细抠图（FarSceneryFineMatte）**。用 U²-Netp 识别山体，自动生成三分遮罩，ViTMatte-Small 精修山脊和山脚的连续透明度，最后去白边。输入只需一张白底 `image`，输出 `image`、`mask`、`preview`；前两项直接连到远景贴图适配，`mask_mode` 保持 `ComfyUI mask (white = transparent)`、`foot_fade_px=0`。`preview` 接预览图像。旧色差节点仍可使用，不会被自动替换。
@@ -49,7 +55,7 @@
 
 标准 ComfyUI 中，导出节点运行后提供蓝色「下载 … .glb」链接。节点同时提供标准的 3D 文件输出记录。工作台如果自带 3D 产物卡片，可通过产物卡片下载。
 
-两个导出节点都有选填的 `workbench_url`。在 ByteArtist 填承载 ComfyUI 画布的工作台地址，例如 `https://workbench.example.com`。可直接粘贴工作台页面的网址，节点会提取域名生成完整的 `download_url`。在浏览器打开这个以 `https://` 开头的完整链接。
+单片导出节点和五片合并节点都有选填的 `workbench_url`。在 ByteArtist 填承载 ComfyUI 画布的工作台地址，例如 `https://workbench.example.com`。可直接粘贴工作台页面的网址，节点会提取域名生成完整的 `download_url`。在浏览器打开这个以 `https://` 开头的完整链接。
 
 留空时 `download_url` 是 `/api/view?...` 形式的相对地址。需要在同一工作台域名下访问，单独粘贴到浏览器可能被当作本地文件。`glb_path` 是工作台机器上的文件路径。`manifest.json` 记录相对地址，便于输出在不同工作台间复用。
 

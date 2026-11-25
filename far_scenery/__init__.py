@@ -12,7 +12,7 @@ from urllib.parse import urlencode, urlsplit
 import numpy as np
 from PIL import Image
 
-from .glb import build_glb
+from .glb import build_glb, merge_ring_glbs
 from .matte import FarSceneryWhiteMatte
 from .fine_matte import FarSceneryFineMatte
 
@@ -202,46 +202,51 @@ class ArcExport:
         "tooltip": "填工作台地址以输出完整 GLB 下载链接，例如 https://workbench.example.com。",
     })}
 
-    def write_export(self, png, asset_id, radius, arc_degrees, segments, base_y, window, touches_edge, workbench_url,
-                     *, yaw_degrees=None):
+    def write_glb(self, glb, asset_id, workbench_url, report, *, png=None):
         import folder_paths
 
         if not ASSET_ID.fullmatch(asset_id):
             raise ValueError("asset_id must be 1–48 ASCII letters, digits, underscores, or hyphens, starting with a letter or digit.")
-        glb, geometry = build_glb(png, radius, arc_degrees, segments, base_y, window, asset_id, yaw_degrees=yaw_degrees)
         digest = hashlib.sha256(glb).hexdigest()
         subfolder = f"far-scenery/{asset_id}-{digest[:12]}"
         destination = Path(folder_paths.get_output_directory()) / subfolder
         glb_name = asset_id + ".glb"
-        png_name = asset_id + ".png"
         relative_url = "/api/view?" + urlencode({"filename": glb_name, "subfolder": subfolder, "type": "output"})
         url = resolve_download_url(workbench_url, relative_url)
         destination.mkdir(parents=True, exist_ok=True)
-        warnings = ["Visible alpha touches a texture edge. / 可见区域触边，请检查轮廓。"] if touches_edge else []
         report = {
             "asset_id": asset_id,
             "glb": glb_name,
-            "png": png_name,
             "download_url": relative_url,
             "sha256": digest,
-            "triangles": segments * 2,
             "material": {"model": "PBR", "alphaMode": "BLEND", "doubleSided": True},
-            "geometry": geometry,
-            "warnings": warnings,
             "editor_verification": "pending",
+            **report,
         }
+        ui = {
+            "3d": [{"filename": glb_name, "subfolder": subfolder, "type": "output"}],
+            "text": [url],
+        }
+        if png is not None:
+            png_name = asset_id + ".png"
+            report["png"] = png_name
+            ui["images"] = [{"filename": png_name, "subfolder": subfolder, "type": "output"}]
+            write_atomic(destination / png_name, png)
         report_text = json.dumps(report, ensure_ascii=False, indent=2)
         write_atomic(destination / glb_name, glb)
-        write_atomic(destination / png_name, png)
         write_atomic(destination / "manifest.json", report_text.encode("utf-8"))
-        return {
-            "ui": {
-                "images": [{"filename": png_name, "subfolder": subfolder, "type": "output"}],
-                "3d": [{"filename": glb_name, "subfolder": subfolder, "type": "output"}],
-                "text": [url],
-            },
-            "result": (str(destination / glb_name), url, report_text),
+        return {"ui": ui, "result": (str(destination / glb_name), url, report_text)}
+
+    def write_export(self, png, asset_id, radius, arc_degrees, segments, base_y, window, touches_edge, workbench_url,
+                     *, yaw_degrees=None):
+        glb, geometry = build_glb(png, radius, arc_degrees, segments, base_y, window, asset_id, yaw_degrees=yaw_degrees)
+        warnings = ["Visible alpha touches a texture edge. / 可见区域触边，请检查轮廓。"] if touches_edge else []
+        report = {
+            "triangles": segments * 2,
+            "geometry": geometry,
+            "warnings": warnings,
         }
+        return self.write_glb(glb, asset_id, workbench_url, report, png=png)
 
 
 class FarSceneryExportGLB(ArcExport):
@@ -303,6 +308,39 @@ class FarSceneryExportRingGLB(ArcExport):
             encode_png(rgba), asset_id, RING_RADIUS, RING_ARC_DEGREES, RING_SEGMENTS, RING_BASE_Y, None,
             touches_edge, workbench_url, yaw_degrees=yaw_degrees
         )
+
+
+class FarSceneryMergeRingGLB(ArcExport):
+    @classmethod
+    def INPUT_TYPES(cls):
+        return {"required": {
+            **{f"glb_path_{index}": ("STRING", {"forceInput": True}) for index in range(1, 6)},
+            "asset_id": ("STRING", {"default": "far-ring-full"}),
+        }, "optional": cls.DOWNLOAD_INPUTS}
+
+    DESCRIPTION = "将五个固定模板 GLB 合成一个整圈模型，保留每片的位置和透明贴图。"
+
+    def export(self, glb_path_1, glb_path_2, glb_path_3, glb_path_4, glb_path_5, asset_id, workbench_url=""):
+        import folder_paths
+
+        root = (Path(folder_paths.get_output_directory()) / "far-scenery").resolve()
+        sources = []
+        for index, path in enumerate((glb_path_1, glb_path_2, glb_path_3, glb_path_4, glb_path_5), 1):
+            source = Path(path).resolve()
+            if source.suffix.lower() != ".glb" or not source.is_relative_to(root):
+                raise ValueError(f"第 {index} 路请连接本工作台「远景固定模板 GLB」的 glb_path。")
+            try:
+                sources.append(source.read_bytes())
+            except OSError as error:
+                raise ValueError(f"第 {index} 路 GLB 无法读取，请重新运行对应导出节点。") from error
+
+        glb, geometry = merge_ring_glbs(sources, asset_id)
+        report = {
+            "triangles": geometry["segments"] * geometry["pieceCount"] * 2,
+            "geometry": geometry,
+            "warnings": [],
+        }
+        return self.write_glb(glb, asset_id, workbench_url, report)
 
 
 def decode_plan_object(pairs):
@@ -389,6 +427,7 @@ NODE_CLASS_MAPPINGS = {
     "FarSceneryWhiteMatte": FarSceneryWhiteMatte,
     "FarSceneryFitTexture": FarSceneryFitTexture,
     "FarSceneryExportRingGLB": FarSceneryExportRingGLB,
+    "FarSceneryMergeRingGLB": FarSceneryMergeRingGLB,
     "FarSceneryExportGLB": FarSceneryExportGLB,
     "FarScenerySplitPlan": FarScenerySplitPlan,
     "FarSceneryPlanItem": FarSceneryPlanItem,
@@ -398,6 +437,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "FarSceneryWhiteMatte": "Far Scenery White Matte / 远景白底转透明",
     "FarSceneryFitTexture": "Far Scenery Fit Texture / 远景贴图适配",
     "FarSceneryExportRingGLB": "Far Scenery Export Ring GLB / 远景固定模板 GLB",
+    "FarSceneryMergeRingGLB": "Far Scenery Merge Ring GLB / 五片合并 GLB",
     "FarSceneryExportGLB": "Far Scenery Export GLB / 远景透明圆弧 GLB",
     "FarScenerySplitPlan": "Far Scenery Split Plan / 拆分五条远景提示词",
     "FarSceneryPlanItem": "Far Scenery Plan Item / 读取远景方案",

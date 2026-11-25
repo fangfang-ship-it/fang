@@ -1,7 +1,7 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
 
-const exportNodes = new Set(["FarSceneryExportGLB", "FarSceneryExportRingGLB"]);
+const exportNodes = new Set(["FarSceneryExportGLB", "FarSceneryExportRingGLB", "FarSceneryMergeRingGLB"]);
 
 app.registerExtension({
     name: "FarScenery.GLBDownload",
