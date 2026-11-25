@@ -21,11 +21,12 @@ WEB_DIRECTORY = "./web"
 COMFY_MASK = "ComfyUI mask (white = transparent)"
 FOREGROUND_MASK = "Foreground alpha (white = opaque)"
 ASSET_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,47}")
-RING_TEXTURE_SIZE = (2048, 640)
+RING_TEXTURE_SIZE = (2048, 512)
 RING_RADIUS = 500.0
-RING_ARC_DEGREES = 72.0
-RING_SEGMENTS = 32
-RING_FOOT_LINE = 600
+RING_ARC_DEGREES = 80.0
+RING_SEGMENTS = 40
+RING_WIDTH_PERCENT = 95.0
+RING_FOOT_LINE = 488
 RING_METERS_PER_PIXEL = RING_RADIUS * math.radians(RING_ARC_DEGREES) / RING_TEXTURE_SIZE[0]
 RING_BASE_Y = (RING_FOOT_LINE - RING_TEXTURE_SIZE[1]) * RING_METERS_PER_PIXEL
 
@@ -144,20 +145,20 @@ class FarSceneryFitTexture:
         return {"required": {
             "image": ("IMAGE",),
             "mask": ("MASK",),
-            "width_percent": ("FLOAT", {"default": 90.0, "min": 1.0, "max": 100.0, "step": 0.5}),
+            "width_percent": ("FLOAT", {"default": RING_WIDTH_PERCENT, "min": 1.0, "max": 100.0, "step": 0.5}),
             "center_percent": ("FLOAT", {"default": 50.0, "min": 0.0, "max": 100.0, "step": 0.5}),
             "foot_line_px": ("INT", {"default": RING_FOOT_LINE, "min": 2, "max": RING_TEXTURE_SIZE[1]}),
             "mask_mode": ([COMFY_MASK, FOREGROUND_MASK],),
         }, "optional": {
             "foot_fade_px": ("INT", {"default": 0, "min": 0, "max": 80, "step": 1,
-                                    "tooltip": "沿连续平滑的山脚曲线向上渐隐（2048 × 640 贴图像素）。先试 24 px，0 保留原始遮罩。"}),
+                                    "tooltip": "沿连续平滑的山脚曲线向上渐隐（2048 × 512 贴图像素）。先试 24 px，0 保留原始遮罩。"}),
         }}
 
     RETURN_TYPES = ("IMAGE", "MASK")
     RETURN_NAMES = ("image", "mask")
     FUNCTION = "fit"
     CATEGORY = "Far Scenery"
-    DESCRIPTION = "等比缩放透明山体，对齐山脚并输出 2048 × 640 画布。"
+    DESCRIPTION = "等比缩放透明山体，对齐山脚并输出 2048 × 512 的 4:1 画布。"
 
     def fit(self, image, mask, width_percent, center_percent, foot_line_px, mask_mode, foot_fade_px=0):
         import torch
@@ -170,16 +171,14 @@ class FarSceneryFitTexture:
         rgba = read_rgba(image, mask, mask_mode)
         bounds = visible_bounds(rgba[..., 3])
         mountain = Image.fromarray(rgba).crop(bounds)
-        target_width = round(width * width_percent / 100)
+        target_width = min(round(width * width_percent / 100), foot_line_px * mountain.width // mountain.height)
         target_height = round(mountain.height * target_width / mountain.width)
-        if target_height < 2:
-            raise ValueError("缩放后山体过薄，请提高 width_percent。")
+        if min(target_width, target_height) < 2:
+            raise ValueError("缩放后山体过薄，请检查山体宽高比、width_percent 和 foot_line_px。")
         left = round(width * center_percent / 100 - target_width / 2)
         top = foot_line_px - target_height
         if left < 0 or left + target_width > width:
             raise ValueError("山体超出画布左右边界，请减小 width_percent 或调整 center_percent。")
-        if top < 0:
-            raise ValueError("山峰超出画布上沿，请减小 width_percent 或把 foot_line_px 调大。")
 
         canvas = Image.new("RGBA", RING_TEXTURE_SIZE)
         canvas.paste(mountain.resize((target_width, target_height), Image.Resampling.LANCZOS), (left, top))
@@ -287,17 +286,17 @@ class FarSceneryExportRingGLB(ArcExport):
             **cls.DOWNLOAD_INPUTS,
             "yaw_degrees": ("FLOAT", {
                 "default": 0.0, "min": -360.0, "max": 360.0, "step": 0.1,
-                "tooltip": "写入网格的方位角（度），绕 GLB 原点的 Y 轴旋转。五片可填 0、72、144、216、288。",
+                "tooltip": "写入网格的方位角（度）。五片填 0、72、144、216、288，相邻弧面重叠 8°。",
             }),
         }}
 
-    DESCRIPTION = "以 500 m 半径和 72° 弧段导出，并将绕原点 Y 轴的方位角写入网格。"
+    DESCRIPTION = "以 500 m 半径和 80° 弧段导出，并将绕原点 Y 轴的方位角写入网格。"
 
     def export(self, image, mask, asset_id, workbench_url="", yaw_degrees=0.0):
         rgba = read_rgba(image, mask, COMFY_MASK)
         width, height = RING_TEXTURE_SIZE
         if rgba.shape[:2] != (height, width):
-            raise ValueError("固定模板需要 2048 × 640 贴图，请先接入「远景贴图适配」。")
+            raise ValueError(f"固定模板需要 {width} × {height} 贴图，请先接入「远景贴图适配」。")
         left, top, right, bottom = visible_bounds(rgba[..., 3])
         touches_edge = left == 0 or top == 0 or right == width or bottom == height
         return self.write_export(

@@ -20,7 +20,7 @@
       "flags": {}, "order": 2, "mode": 0,
       "inputs": [{"name": "image", "type": "IMAGE", "link": 2}, {"name": "mask", "type": "MASK", "link": 3}],
       "outputs": [{"name": "image", "type": "IMAGE", "links": [5]}, {"name": "mask", "type": "MASK", "links": [6]}],
-      "properties": {"Node name for S&R": "FarSceneryFitTexture"}, "widgets_values": [90.0, 50.0, 600, "ComfyUI mask (white = transparent)", 0]
+      "properties": {"Node name for S&R": "FarSceneryFitTexture"}, "widgets_values": [95.0, 50.0, 488, "ComfyUI mask (white = transparent)", 0]
     },
     {
       "id": 4, "type": "FarSceneryExportRingGLB", "pos": [1320, 100], "size": [380, 280],

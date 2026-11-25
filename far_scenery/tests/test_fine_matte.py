@@ -110,9 +110,9 @@ class TestFineMatte(unittest.TestCase):
         self.assertTrue(bool((mask == 0).any() and (mask == 1).any() and ((mask > 0) & (mask < 1)).any()))
         self.assertEqual(preview.shape[-1], 3)
         self.assertIs(matting.get_models(cached), matting.get_models(cached))
-        fitted, fitted_mask = plugin.FarSceneryFitTexture().fit(image, mask, 90, 50, 600, plugin.COMFY_MASK, 0)
+        fitted, fitted_mask = plugin.FarSceneryFitTexture().fit(image, mask, 95, 50, 488, plugin.COMFY_MASK, 0)
         rgba = plugin.read_rgba(fitted, fitted_mask, plugin.COMFY_MASK)
-        self.assertEqual(rgba.shape, (640, 2048, 4))
+        self.assertEqual(rgba.shape, (512, 2048, 4))
 
         reference = os.environ.get("FAR_SCENERY_TEST_REFERENCE")
         if reference:
@@ -131,7 +131,7 @@ class TestFineMatte(unittest.TestCase):
         self.assertEqual(glb[offset:offset + view["byteLength"]], png)
         self.assertEqual(gltf["materials"][0]["alphaMode"], "BLEND")
         self.assertEqual(meta["radiusMeters"], 500)
-        self.assertEqual(meta["spanDegrees"], 72)
+        self.assertEqual(meta["spanDegrees"], 80)
         self.assertEqual(Image.open(BytesIO(png)).mode, "RGBA")
 
 

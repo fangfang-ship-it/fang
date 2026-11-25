@@ -1,4 +1,4 @@
-"""Check the fixed-template export and the join between all five rotations."""
+"""Check the fixed-template export and the overlap between the five rotations."""
 import importlib.util
 import json
 import math
@@ -22,9 +22,9 @@ spec.loader.exec_module(plugin)
 
 
 class TestRingYaw(unittest.TestCase):
-    def test_five_exports_share_origin_and_close_ring(self):
-        image = np.zeros((640, 2048, 4), dtype=np.uint8)
-        image[400:600, 100:1948] = (158, 108, 80, 255)
+    def test_five_exports_share_origin_and_overlap_by_eight_degrees(self):
+        image = np.zeros((512, 2048, 4), dtype=np.uint8)
+        image[300:488, 51:1997] = (158, 108, 80, 255)
         exporter = plugin.FarSceneryExportRingGLB()
         angles = (0, 72, 144, 216, 288)
         sector_positions = []
@@ -39,7 +39,12 @@ class TestRingYaw(unittest.TestCase):
                     geometry = json.loads(report)["geometry"]
                     self.assertEqual(geometry["originMeters"], [0, 0, 0])
                     self.assertEqual(geometry["radiusMeters"], 500)
-                    self.assertEqual(geometry["spanDegrees"], 72)
+                    self.assertEqual(geometry["spanDegrees"], 80)
+                    self.assertEqual(geometry["textureSize"], [2048, 512])
+                    self.assertAlmostEqual(geometry["heightMeters"], 500 * math.radians(80) / 4)
+                    self.assertAlmostEqual(
+                        geometry["baseMeters"] + geometry["heightMeters"] * 24 / 512, 0
+                    )
                     self.assertEqual(geometry["yawDegrees"], yaw)
                     self.assertTrue(geometry["yawBakedIntoMesh"])
 
@@ -62,7 +67,8 @@ class TestRingYaw(unittest.TestCase):
                     sector_positions.append(positions)
 
             for current, following in zip(sector_positions, sector_positions[1:] + sector_positions[:1]):
-                np.testing.assert_allclose(current[:2], following[-2:], atol=.001)
+                # Five vertex pairs span the shared 8 degrees at 2 degrees per segment.
+                np.testing.assert_allclose(current[:10], following[-10:], atol=.001)
 
 
 if __name__ == "__main__":
