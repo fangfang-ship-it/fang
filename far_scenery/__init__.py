@@ -15,6 +15,7 @@ from PIL import Image
 from .glb import build_glb, merge_ring_glbs
 from .matte import FarSceneryGreenKey, FarSceneryWhiteMatte
 from .fine_matte import FarSceneryFineMatte
+from .workbench import install_workbench_url_detection
 
 
 WEB_DIRECTORY = "./web"
@@ -199,7 +200,7 @@ class ArcExport:
     CATEGORY = "Far Scenery"
     DOWNLOAD_INPUTS = {"workbench_url": ("STRING", {
         "default": "",
-        "tooltip": "填工作台地址以输出完整 GLB 下载链接，例如 https://workbench.example.com。",
+        "tooltip": "ByteArtist 会尝试使用当前工作台地址。支持手填地址作为备用。",
     })}
 
     def write_glb(self, glb, asset_id, workbench_url, report, *, png=None):
@@ -444,3 +445,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "FarScenerySplitPlan": "Far Scenery Split Plan / 拆分五条远景提示词",
     "FarSceneryPlanItem": "Far Scenery Plan Item / 读取远景方案",
 }
+
+install_workbench_url_detection()
