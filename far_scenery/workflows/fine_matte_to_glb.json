@@ -27,7 +27,7 @@
       "flags": {}, "order": 4, "mode": 0,
       "inputs": [{"name": "image", "type": "IMAGE", "link": 5}, {"name": "mask", "type": "MASK", "link": 6}],
       "outputs": [{"name": "glb_path", "type": "STRING", "links": []}, {"name": "download_url", "type": "STRING", "links": []}, {"name": "report", "type": "STRING", "links": []}],
-      "properties": {"Node name for S&R": "FarSceneryExportRingGLB"}, "widgets_values": ["far-ring-01", ""]
+      "properties": {"Node name for S&R": "FarSceneryExportRingGLB"}, "widgets_values": ["far-ring-01", "", 0]
     },
     {
       "id": 5, "type": "PreviewImage", "pos": [440, 320], "size": [380, 280],

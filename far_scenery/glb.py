@@ -22,7 +22,7 @@ def texture_size(png):
     return width, height
 
 
-def build_glb(png, radius, angle, segments, base_y, window, name):
+def build_glb(png, radius, angle, segments, base_y, window, name, *, yaw_degrees=None):
     texture_width, texture_height = texture_size(png)
     left, top, right, bottom = window or (0, 0, texture_width, texture_height)
     if not (0 <= left < right <= texture_width and 0 <= top < bottom <= texture_height):
@@ -82,11 +82,20 @@ def build_glb(png, radius, angle, segments, base_y, window, name):
         "textureSize": [texture_width, texture_height],
         "textureWindow": [left, top, right, bottom],
     }
+    node = {"name": name, "mesh": 0, "extras": metadata}
+    if yaw_degrees is not None:
+        if not math.isfinite(yaw_degrees):
+            raise ValueError("Yaw must be a finite number of degrees. / 旋转角须为有限数值。")
+        half_yaw = math.radians(yaw_degrees % 360) / 2
+        origin = [0.0, 0.0, 0.0]
+        node["translation"] = origin
+        node["rotation"] = [0.0, math.sin(half_yaw), 0.0, math.cos(half_yaw)]
+        metadata.update({"originMeters": origin, "yawDegrees": float(yaw_degrees)})
     gltf = {
         "asset": {"version": "2.0", "generator": "ComfyUI-FarScenery"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
-        "nodes": [{"name": name, "mesh": 0, "extras": metadata}],
+        "nodes": [node],
         "meshes": [{"primitives": [{
             "attributes": {"POSITION": 0, "TEXCOORD_0": 1, "NORMAL": 3},
             "indices": 2, "material": 0,

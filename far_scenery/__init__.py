@@ -203,12 +203,13 @@ class ArcExport:
         "tooltip": "填工作台地址以输出完整 GLB 下载链接，例如 https://workbench.example.com。",
     })}
 
-    def write_export(self, png, asset_id, radius, arc_degrees, segments, base_y, window, touches_edge, workbench_url):
+    def write_export(self, png, asset_id, radius, arc_degrees, segments, base_y, window, touches_edge, workbench_url,
+                     *, yaw_degrees=None):
         import folder_paths
 
         if not ASSET_ID.fullmatch(asset_id):
             raise ValueError("asset_id must be 1–48 ASCII letters, digits, underscores, or hyphens, starting with a letter or digit.")
-        glb, geometry = build_glb(png, radius, arc_degrees, segments, base_y, window, asset_id)
+        glb, geometry = build_glb(png, radius, arc_degrees, segments, base_y, window, asset_id, yaw_degrees=yaw_degrees)
         digest = hashlib.sha256(glb).hexdigest()
         subfolder = f"far-scenery/{asset_id}-{digest[:12]}"
         destination = Path(folder_paths.get_output_directory()) / subfolder
@@ -282,11 +283,17 @@ class FarSceneryExportRingGLB(ArcExport):
             "image": ("IMAGE",),
             "mask": ("MASK",),
             "asset_id": ("STRING", {"default": "far-ring-01"}),
-        }, "optional": cls.DOWNLOAD_INPUTS}
+        }, "optional": {
+            **cls.DOWNLOAD_INPUTS,
+            "yaw_degrees": ("FLOAT", {
+                "default": 0.0, "min": -360.0, "max": 360.0, "step": 0.1,
+                "tooltip": "绕 GLB 原点的 Y 轴旋转角（度）。五片整圈可填 0、72、144、216、288。",
+            }),
+        }}
 
-    DESCRIPTION = "以 500 m 半径、72° 弧段和固定 UV 导出完整透明画布。"
+    DESCRIPTION = "以 500 m 半径和 72° 弧段导出，可绕 (0, 0, 0) 的竖直 Y 轴旋转。"
 
-    def export(self, image, mask, asset_id, workbench_url=""):
+    def export(self, image, mask, asset_id, workbench_url="", yaw_degrees=0.0):
         rgba = read_rgba(image, mask, COMFY_MASK)
         width, height = RING_TEXTURE_SIZE
         if rgba.shape[:2] != (height, width):
@@ -295,7 +302,7 @@ class FarSceneryExportRingGLB(ArcExport):
         touches_edge = left == 0 or top == 0 or right == width or bottom == height
         return self.write_export(
             encode_png(rgba), asset_id, RING_RADIUS, RING_ARC_DEGREES, RING_SEGMENTS, RING_BASE_Y, None,
-            touches_edge, workbench_url
+            touches_edge, workbench_url, yaw_degrees=yaw_degrees
         )
 
 
